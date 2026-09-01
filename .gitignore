@@ -1,0 +1,32 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Downloaded linguistic data and models — fetched by scripts/fetch_data.py, never committed.
+# These are large and separately licensed; see docs/research/ for each source's terms.
+data/
+!data/.gitkeep
+!data/README.md
+
+# Local databases and caches
+*.db
+*.sqlite
+*.sqlite3
+.cache/
+
+# Secrets
+.env
+.env.local
+
+# macOS
+.DS_Store
