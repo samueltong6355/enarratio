@@ -1,0 +1,26 @@
+# Enarratio analysis backend. Python 3.12 -- NOT 3.13+, which the spaCy stack does not
+# yet have wheels for, and NOT the system 3.14.
+#
+#   uv venv --python 3.12 .venv
+#   uv pip install --python .venv/bin/python -r server/requirements.txt
+
+spacy>=3.8,<3.9
+numpy>=1.26
+
+# LatinCy pipeline: contextual lemma, UPOS, morphology and dependencies.
+# MIT. Installed from HuggingFace because it is not published on PyPI.
+la_core_web_lg @ https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.6-py3-none-any.whl
+
+# Whitaker's WORDS + Lewis & Short as spaCy components: the complete candidate analysis
+# set, dictionary entries with principal parts, and paradigm generation. MIT.
+latincy-lexicon>=0.11.1
+
+# Language identification, used with Whitaker analysability as the "is this Latin?" gate.
+lingua-language-detector>=2.0
+
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+
+# Dev
+pytest>=8.0
