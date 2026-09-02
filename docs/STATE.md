@@ -1,6 +1,6 @@
 # State of play
 
-**Updated:** 2026-09-02, after the second research sweep.
+**Updated:** 2026-09-02, after wiring scansion into the interface.
 **Read this first; update it before you stop.** `./scripts/status.sh` prints a live readout.
 
 ---
@@ -28,29 +28,27 @@ to be sitting on local disk already keyed by `(book, line)`.
 | Language gate | done | genuine Latin ≥86% analysable vs ≤58% for everything else |
 | Construction detection | 28 rules | 27 passing regression tests, each hand-checked against A&G |
 | Reading interface | done | driven with a real browser; no console errors |
-| **Scansion (hexameter)** | **works, not yet wired in** | 6/7 lines correct incl. *Aen.* 1.1, 1.3, 1.5, *Ecl.* 1.1 |
+| **Scansion (hexameter)** | **done, wired in** | 6/7 lines correct incl. *Aen.* 1.1, 1.3, 1.5, *Ecl.* 1.1; verified in browser |
 
-Not yet wired into the API or UI: **scansion**. `server/enarratio/scansion.py` is complete
-and correct but nothing calls it. That is the cheapest remaining win.
+Everything above is reachable from the interface. Verse is detected rather than declared:
+each line is offered to the hexameter fitter and the passage counts as verse if a majority
+fit, which prose never does.
 
 ---
 
 ## Next actions
 
-1. **Wire scansion into the pipeline, API and UI.** The module is done. Add a `scansion`
-   key to the `/api/analyse` response (only when the passage looks like verse), and render
-   the macron/breve line above the text with elisions marked. ~1 hour.
-2. **Commentary ingest — highest value for effort.** `scratchpad/hopper/` already contains
+1. **Commentary ingest — highest value for effort.** `scratchpad/hopper/` already contains
    `Classics/Vergil/opensource/serv.verg.aen_lat.xml` (Servius, all 12 books) and
    `c.verg.aen{1,2}_eng.xml` (Conington), where every note is
    `<div2 type="commline" n="LINE">` inside `<div1 type="book" n="BOOK">`. Parse once into
    SQLite keyed by `(work, book, line)`. No fuzzy matching needed. See
    `docs/research/commentary-sources.md`.
-3. **Passage identification.** Hashed word-5-gram inverted index over the normalised token
+2. **Passage identification.** Hashed word-5-gram inverted index over the normalised token
    stream, SQLite `(hash, work_id, token_offset)`. Do *not* use FTS5, MinHash or embeddings —
    measured and rejected. This unlocks (2) for arbitrary input. See
    `docs/research/passage-identification.md`.
-4. **The eleven missing clause detectors.** We cover ~12% of A&G's ~230 named constructions,
+3. **The eleven missing clause detectors.** We cover ~12% of A&G's ~230 named constructions,
    and the gap is almost entirely the subordinate-clause and mood system — where students
    actually get stuck. All eleven are closed-conjunction-list + mood rules, the same shape as
    the detectors that already work: `quin`/`quominus` (558–9), substantive purpose after
@@ -59,9 +57,9 @@ and correct but nothing calls it. That is the cheapest remaining win.
    `antequam`/`priusquam` (551), `dum`/`donec`/`quoad` (553–6), conditional protasis/apodosis
    (513–17), relative clause of purpose (531.2), noun-clause `quod` of fact (572). See
    `docs/research/syntax-taxonomy.md`.
-5. **Allusion.** Tesserae bigram index over the local `.tess` corpus with Tesserae's published
+4. **Allusion.** Tesserae bigram index over the local `.tess` corpus with Tesserae's published
    scoring formula. `knauer.json` gives verified Vergil↔Homer pairs as ground truth.
-6. **Cultural background.** Hardest, least settled. Note the negative finding: the Perseus
+5. **Cultural background.** Hardest, least settled. Note the negative finding: the Perseus
    hopper dump does **not** contain Smith's dictionaries — the empty directories are a
    deliberate rights carve-out, not a failed download.
 
@@ -85,6 +83,8 @@ and correct but nothing calls it. That is the cheapest remaining win.
 
 ## Known bugs and limitations
 
+- The `data/` download is not automated yet: `morpheus-quantities.db` must be copied by hand
+  or scansion silently degrades to position-and-diphthong evidence. `run.sh` should fetch it.
 - **Synizesis is not implemented**, so *Aen.* 1.2 (`Laviniaque` → *Lāvīnjă-que*) does not
   scan. Only hexameter is implemented; elegiac couplet, hendecasyllable and the lyric
   strophes are not.

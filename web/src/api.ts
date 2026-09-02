@@ -85,12 +85,36 @@ export interface Gate {
   message: string;
 }
 
+export interface ScanSyllable {
+  text: string;
+  word: number;
+  quantity: "long" | "short" | "anceps" | "unknown";
+  reason: string;
+  elided: boolean;
+  common: boolean;
+}
+
+export interface ScanLine {
+  line: string;
+  metre: string;
+  ok: boolean;
+  pattern: string;
+  note: string;
+  alternatives: number;
+  elisions: string[];
+  caesurae: { foot: number; name: string; kind: string; after: string; note: string }[];
+  feet: { n: number; kind: string; syllables: number[] }[];
+  syllables: ScanSyllable[];
+  liveCount: number;
+}
+
 export interface Analysis {
   text: string;
   gate: Gate;
   tokens: Token[];
   constructions: Construction[];
   sentences: { i: number; start: number; end: number; text: string }[];
+  scansion: ScanLine[] | null;
   model: string;
 }
 
