@@ -108,6 +108,19 @@ export interface ScanLine {
   liveCount: number;
 }
 
+export interface Passage {
+  work: string; author: string; title: string; unit: string;
+  book: number; lineStart: number; lineEnd: number;
+  confidence: number; matchedShingles: number; possibleShingles: number;
+  citation: string;
+}
+
+export interface Note {
+  author: string; source: string; language: string;
+  book: number; lineStart: number; lineEnd: number;
+  lemma: string; text: string; line: number;
+}
+
 export interface Analysis {
   text: string;
   gate: Gate;
@@ -115,6 +128,8 @@ export interface Analysis {
   constructions: Construction[];
   sentences: { i: number; start: number; end: number; text: string }[];
   scansion: ScanLine[] | null;
+  passage: Passage | null;
+  commentary: Note[];
   model: string;
 }
 

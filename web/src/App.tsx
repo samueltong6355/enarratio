@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { analyse, type Analysis, type Construction, type ScanLine, type Token } from "./api";
+import { analyse, type Analysis, type Construction, type Note, type Passage, type ScanLine, type Token } from "./api";
 import "./App.css";
 
 const SAMPLES: { label: string; text: string }[] = [
@@ -133,6 +133,8 @@ export default function App() {
             {data.gate.message && (
               <p className="notice">{data.gate.message}</p>
             )}
+            {data.passage && <Citation passage={data.passage} />}
+
             <div className="passage">
               {data.tokens.map((t) => (
                 <TokenSpan
@@ -148,6 +150,10 @@ export default function App() {
             </div>
 
             {data.scansion && <ScansionPanel lines={data.scansion} />}
+
+            {data.commentary.length > 0 && (
+              <CommentaryPanel notes={data.commentary} />
+            )}
 
             {data.constructions.length > 0 && (
               <section className="constructions">
@@ -454,6 +460,53 @@ function ScansionPanel({ lines }: { lines: ScanLine[] }) {
               ))}
             </>
           )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+
+function Citation({ passage }: { passage: Passage }) {
+  const sure = passage.confidence >= 0.6;
+  return (
+    <div className={`citation${sure ? "" : " unsure"}`}>
+      <span className="cit-work">{passage.citation}</span>
+      <span className="cit-conf">
+        {sure ? "identified" : "possible match"} — {passage.matchedShingles} of{" "}
+        {passage.possibleShingles} phrases matched
+      </span>
+    </div>
+  );
+}
+
+function CommentaryPanel({ notes }: { notes: Note[] }) {
+  const byLine = new Map<number, Note[]>();
+  notes.forEach((n) => {
+    const a = byLine.get(n.line) ?? [];
+    a.push(n);
+    byLine.set(n.line, a);
+  });
+  return (
+    <section className="commentary">
+      <h2>Commentary</h2>
+      <p className="muted">
+        Servius (c. 400) is the ancient commentary; Conington (1863) the standard
+        Victorian one. Both are addressed to the line, not the word.
+      </p>
+      {[...byLine.entries()].map(([line, ns]) => (
+        <div className="cline" key={line}>
+          <h3>Line {line}</h3>
+          {ns.map((n, i) => (
+            <details className={`note ${n.language}`} key={i} open={i === 0}>
+              <summary>
+                <strong>{n.author}</strong>
+                {n.lemma && <em> on &lsquo;{n.lemma}&rsquo;</em>}
+                <span className="lang">{n.language === "la" ? "Latin" : "English"}</span>
+              </summary>
+              <p>{n.text}</p>
+            </details>
+          ))}
         </div>
       ))}
     </section>
