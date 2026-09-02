@@ -1,6 +1,6 @@
 # State of play
 
-**Updated:** 2026-09-02, after the corpus expansion, literary figures, and the AP benchmark.
+**Updated:** 2026-09-02, after the full case-usage inventory and The Latin Library index.
 **Read this first; update it before you stop.** `./scripts/status.sh` prints a live readout.
 
 ---
@@ -31,7 +31,8 @@ to be sitting on local disk already keyed by `(book, line)`.
 | **Scansion (hexameter)** | done, wired in | 6/7 lines correct incl. *Aen.* 1.1, 1.3, 1.5, *Ecl.* 1.1; verified in browser |
 | **Passage identification** | done, wired in | 15 works, 376k tokens; macronised and `VIRVMQVE` orthography both resolve; unindexed authors correctly declined |
 | **Commentary** | done, wired in | 28,747 notes from 5 commentators; Allen & Greenough's Caesar notes are word-level |
-| **Literary figures** | **done, wired in** | 17 figures, each explaining its *effect*; 89 tests |
+| **Literary figures** | done, wired in | 17 figures, each explaining its *effect* |
+| **Case usage** | **done, wired in** | 42 uses of gen./dat./acc./abl./gerund; 70 constructions in all; 128 tests |
 | **AP Latin syllabus** | **100% covered** | `scripts/ap_coverage.py`: 897/897 units, 18/18 passages identified, 18/18 with commentary |
 
 Everything above is reachable from the interface. Verse is detected rather than declared:
@@ -87,9 +88,15 @@ fit, which prose never does.
 - `scripts/build-data.sh` rebuilds `commentary.db` and `passages.db` from the Perseus dump,
   but `morpheus-quantities.db` must still be copied by hand from Winge's latin-macronizer;
   without it scansion degrades to position-and-diphthong evidence.
-- Identification covers fifteen works (Vergil, Caesar, Horace, Catullus, Ovid *Met.*,
-  Cicero's orations). Commentary covers all but Cicero. **Livy, Tacitus, Seneca and Ovid's
-  other works are not indexed** — they analyse fully but receive no citation and no notes.
+- Identification covers fifteen Perseus works with real citations, plus ~600 Latin Library
+  texts (Livy, Tacitus, Sallust, Juvenal, Lucretius, Seneca, Martial, Plautus and the rest
+  of the classical canon). **The Latin Library carries no commentary of any kind** — it is a
+  bare text archive — so those works get a citation but no notes.
+- Latin Library verse citations count lines from the top of the file, since the archive
+  marks no line numbers. Accurate for a complete book, but reported at lower confidence
+  than the Perseus citations, which come from real `<l n=…>` anchors.
+- The medieval and neo-Latin two-thirds of The Latin Library is deliberately not indexed:
+  13.7M words would cost several GB for material a student is rarely translating.
 - Commentary for AP Caesar *BG* 4.24–36 covers 10 of 13 chapters; the other three have no
   Allen & Greenough note.
 - Metaphor, oxymoron, transferred epithet and true hendiadys are **deliberately not

@@ -37,7 +37,22 @@ pasted text
     │      "is this Latin?" only — never "is this good Latin?"
     │
     ├─6─ detect constructions ..... server/enarratio/constructions.py
-    │      28 rules over morphology + dependencies, each citing Allen & Greenough
+    │      28 named constructions over morphology + dependencies
+    │
+    ├─6b─ classify case usage ..... server/enarratio/cases.py
+    │      42 uses of the genitive, dative, accusative, ablative, gerund/gerundive
+    │
+    ├─6c─ detect literary figures . server/enarratio/devices.py
+    │      17 figures, each explaining its effect rather than just its name
+    │
+    ├─6d─ identify the passage .... server/enarratio/identify.py + corpus.py
+    │      hashed 5-gram shingle index; Perseus citations, Latin Library for breadth
+    │
+    ├─6e─ attach commentary ....... server/enarratio/commentary.py
+    │      28,747 notes keyed by (work, reference, line)
+    │
+    ├─6f─ scan the metre .......... server/enarratio/scansion.py
+    │      hexameter, solving quantity and metre as one constraint problem
     │
     └─7─ assemble ................. server/enarratio/pipeline.py
            dictionary entries, paradigm data, human-readable parse
@@ -87,6 +102,43 @@ noting that displaced word order is the likelier explanation than faulty Latin.
 
 A tool that silently refuses hard passages is worthless to someone translating hard passages.
 
+### Why the case system needs its own module
+
+Naming constructions and classifying case usage are different problems. A construction like
+the ablative absolute is a *shape* — two ablatives, a participle, no preposition — and
+either the shape is there or it is not. A case *use* is a question about function that has
+to be answered for every oblique noun in the passage, and the answer is rarely structural.
+
+The ablative is the reason. Latin merged three Indo-European cases into one form — the
+ablative proper (*from*), the instrumental (*with*), and the locative (*in*) — so a single
+ending carries separation, means, manner, accompaniment, price, respect, cause, origin,
+degree of difference, route, place and time. No amount of morphology distinguishes them.
+What distinguishes them is the governing word, the presence or absence of a preposition,
+and the semantic class of the noun. That is why `cases.py` is mostly closed lexical lists:
+a bare ablative is ambiguous between a dozen readings, but a bare ablative governed by
+*emo* is a price, and one governed by *careo* is separation.
+
+Where two readings genuinely compete the module reports both. Subjective and objective
+genitives are formally identical — *amor patris* is the father's love or love for the
+father — so offering one and suppressing the other would be a false precision.
+
+### Why the parse needs surface fallbacks
+
+Rules keyed on the dependency parse keep failing in the same few ways, and each failure is
+now worked around rather than tolerated:
+
+| What the parser does | Consequence | Fallback |
+|---|---|---|
+| Attaches an oblique noun to the neighbouring noun, not the verb | verb-keyed rules never fire | climb to the nearest governing verb |
+| Picks one case for an ambiguous form (`gloriae` → dative) | genitive rules blocked | consult Whitaker's candidate list when a governing word demands a case |
+| Tags `multo` as an adverb with no case | ablative of measure invisible | match on form before the case filter |
+| Tags `legendo` as a proper noun | gerund invisible | recognise the `-nd-` stem |
+| Reads `veni` as a vocative proper noun | asyndeton hidden, apostrophe invented | comma-delimited members; reject vocatives that are also subjects |
+
+The general principle: **a detector that depends on the parse should carry independent
+evidence for the cases where the parse is weakest**, and should say in its caveat when it
+has overridden the parser.
+
 ### Why constructions are allowed to overlap
 
 Several detectors may fire on one word, and that is intended. *Carthago delenda est nobis*
@@ -105,6 +157,8 @@ rather than authoritative.
 | LatinCy emits no `Degree` feature | Comparatives and superlatives are recovered from the form. |
 | Gerunds arrive tagged as participles | `Tok.is_gerundive()` accepts both spellings of the analysis. |
 | `advcl:abs` misses nominal ablative absolutes | A supplementary rule keys on role-nouns; confidence 0.7, with a caveat. |
+| The bare ablative is ambiguous between a dozen uses | Means is the residual reading, at 0.6 and with an explicit caveat. |
+| Subjective and objective genitives are formally identical | Both are reported; the reader decides from sense. |
 | Dependency errors propagate into rules | Every construction carries evidence so the reader can audit it. |
 
 `la_core_web_trf` roughly halves the morphological error rate (94.63% vs 90.78%) at the cost
@@ -112,8 +166,7 @@ of speed and size; it is the intended upgrade for interactive single-passage use
 
 ## What is not built yet
 
-The passage-identification, commentary, scansion, intertext and cultural-background layers
-are designed but not implemented. The research phase downloaded much of the data they need
+The intertext and cultural-background layers are designed but not implemented. The research phase downloaded much of the data they need
 (Perseus `canonical-latinLit`, the Latin Library and Tesserae corpora, Lewis & Short,
 Morpheus, UD treebanks, Allen & Greenough). See [`../CHANGELOG.md`](../CHANGELOG.md) and the
 project README for current status.
@@ -124,7 +177,14 @@ project README for current status.
 server/enarratio/
     normalize.py       offset-preserving orthographic folding
     gate.py            language identification; anomaly reporting
-    constructions.py   28 construction detectors + the lexical classes that license them
+    constructions.py   28 named constructions + the lexical classes that license them
+    cases.py           42 uses of the oblique cases and the gerund/gerundive
+    devices.py         17 literary figures, each with its rhetorical effect
+    corpus.py          per-work specs for reading Perseus's many markup shapes
+    identify.py        shingle index; passage identification and canonical text
+    latinlibrary.py    optional breadth: ~600 more classical texts, no commentary
+    commentary.py      Servius, Conington, Shorey, Merrill, Allen & Greenough
+    scansion.py        hexameter, quantity and metre solved jointly
     pipeline.py        stage orchestration, morphology rendered into English
     app.py             FastAPI, localhost only
 server/tests/          regression tests, each case verified against A&G by hand
