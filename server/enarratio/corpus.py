@@ -70,6 +70,18 @@ WORKS: tuple[Work, ...] = (
          labels=("book", "chapter", "section"), verse=False),
     # BC marks chapters as divs where BG marks them as milestones -- same author, same
     # publisher, different decade of digitisation.
+    # Cicero's orations: sections run continuously through each speech, which is exactly
+    # how they are cited (*Cat.* 1.4 is speech 1, section 4). Chapters are an older parallel
+    # division and are ignored for citation.
+    Work("cicero.catilinam", "Cicero", "In Catilinam", "Cicero/opensource/cic.oct1_lat.xml",
+         divs=("speech",), leaf="section", milestones=("section",),
+         labels=("speech", "section"), verse=False),
+    Work("cicero.philippics", "Cicero", "Philippics", "Cicero/opensource/cic.oct2_lat.xml",
+         divs=("speech",), leaf="section", milestones=("section",),
+         labels=("speech", "section"), verse=False),
+    Work("cicero.agraria", "Cicero", "De Lege Agraria", "Cicero/opensource/cic.oct4_lat.xml",
+         divs=("speech",), leaf="section", milestones=("section",),
+         labels=("speech", "section"), verse=False),
     Work("caesar.bc", "Caesar", "De Bello Civili", "Caesar/opensource/caes.bc_lat.xml",
          divs=("book", "chapter"), leaf="section", milestones=("section",),
          labels=("book", "chapter", "section"), verse=False),
@@ -230,12 +242,12 @@ def extract_units(source_dir: Path, w: Work) -> list[Unit]:
     path = source_dir / w.filename
     if not path.exists():
         return []
+    # Walk the whole document rather than the first <text>/<body>. Perseus splits some
+    # files into one <text> per speech -- cic.oct1 has seven, and none of the four
+    # Catilinarians is in the first -- so stopping at the first body silently yielded
+    # nothing at all. The header carries no div elements, so including it is harmless.
     root = ET.fromstring(_readable_xml(path))
-    body = root.find(".//text/body")
-    if body is None:
-        body = root
-    units = list(_verse_units(body, w) if w.verse else _prose_units(body, w))
-    return units
+    return list(_verse_units(root, w) if w.verse else _prose_units(root, w))
 
 
 def format_citation(w: Work, ref: tuple[int, ...], leaf: int, leaf_end: int | None = None) -> str:

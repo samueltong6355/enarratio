@@ -51,6 +51,10 @@ def test_normalisation_collapses_orthography() -> None:
         ("Exegi monumentum aere perennius regalique situ", "horace.odes", "3.30", 1),
         ("Vivamus mea Lesbia atque amemus", "catullus.carmina", "5", 1),
         ("In nova fert animus mutatas dicere formas", "ovid.metamorphoses", "1", 1),
+        # Cicero's orations, cited speech.section as the editions cite them.
+        ("Quo usque tandem abutere, Catilina, patientia nostra", "cicero.catilinam", "1", 1),
+        ("O tempora, o mores! Senatus haec intellegit, consul videt",
+         "cicero.catilinam", "1", 2),
     ],
 )
 def test_identifies(text: str, work: str, ref: str, line: int) -> None:
@@ -63,9 +67,9 @@ def test_identifies(text: str, work: str, ref: str, line: int) -> None:
 @pytest.mark.parametrize(
     "text",
     [
-        "Quo usque tandem abutere, Catilina, patientia nostra",
         "In principio erat Verbum, et Verbum erat apud Deum",
         "Respondeo dicendum quod necesse est dicere omne quod quocumque modo est",
+        "Computatrum meum electronicum interretialiter cum aliis computatris communicat",
     ],
 )
 def test_declines_to_guess(text: str) -> None:
