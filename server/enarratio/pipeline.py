@@ -318,6 +318,7 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
                 head=t.head.i, morph=t.morph.to_dict(),
                 candidates=tuple(getattr(t._, "ww", None) or ()),
                 ent=t.ent_type_ or "",
+                gloss=getattr(t._, "gloss", None) or "",
             )
             for t in sent
         ]
