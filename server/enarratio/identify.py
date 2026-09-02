@@ -159,9 +159,30 @@ def identify(text: str, db_path: Path | None = None, min_votes: int = 3) -> dict
         conn.close()
         return None
 
-    ranked = votes.most_common(2)
+    # Where a work exists in both corpora the vote counts are identical, because the text
+    # is the same -- so the tie must be broken deliberately. Perseus wins every time: its
+    # citations come from real <l n=...> anchors rather than from counting lines down a
+    # file, and the commentary hangs off those references. Without this, adding The Latin
+    # Library silently downgraded Caesar and Horace from proper citations to line offsets.
+    sources = {
+        r[0]: (r[1] or "perseus")
+        for r in conn.execute("SELECT id, source FROM work")
+    } if "source" in {c[1] for c in conn.execute("PRAGMA table_info(work)")} else {}
+
+    ranked = sorted(
+        votes.items(),
+        key=lambda kv: (-kv[1], sources.get(kv[0][0], "perseus") != "perseus", kv[0][0]),
+    )
     (wid, base), n_votes = ranked[0]
     possible = len(hashes)
+    winner_source = sources.get(wid, "perseus")
+
+    # A rival alignment only counts as ambiguity if it is a genuinely different reading.
+    # The same passage held in both corpora produces two alignments with identical votes,
+    # and treating that as a tie made short quotations unidentifiable rather than merely
+    # duplicated -- so rivals from a different corpus are ignored.
+    rivals = [r for r in ranked[1:]
+              if r[1] >= n_votes and sources.get(r[0][0], "perseus") == winner_source]
 
     # A short excerpt cannot clear a fixed vote floor: a single hexameter of five words
     # yields exactly one shingle. But one five-word phrase occurring in exactly one place
@@ -169,7 +190,7 @@ def identify(text: str, db_path: Path | None = None, min_votes: int = 3) -> dict
     # the test becomes uniqueness instead of volume -- the winning alignment must be the
     # only one. A phrase common enough to appear twice produces a tie and is rejected.
     if possible < min_votes:
-        if len(ranked) > 1 and ranked[1][1] >= n_votes:
+        if rivals:
             conn.close()
             return None
     elif n_votes < min_votes:
@@ -192,10 +213,18 @@ def identify(text: str, db_path: Path | None = None, min_votes: int = 3) -> dict
     w = work_by_key(row["key"])
     ref = tuple(int(x) for x in start["ref"].split(".") if x)
     same_ref = end is not None and end["ref"] == start["ref"]
-    citation = (
-        format_citation(w, ref, start["leaf"], end["leaf"] if same_ref else None)
-        if w else f"{row['author']}, {row['title']} {start['ref']}.{start['leaf']}"
-    )
+    if w is not None:
+        citation = format_citation(w, ref, start["leaf"], end["leaf"] if same_ref else None)
+    else:
+        # A Latin Library work. Its recorded title usually already names the author
+        # ("Tacitus: Annales I"), so repeating it reads badly, and a file with no chapter
+        # markers has an empty reference that must not print as a bare dot.
+        title = re.sub(r"^%s\s*[:,]\s*" % re.escape(row["author"]), "", row["title"],
+                       flags=re.IGNORECASE).strip() or row["title"]
+        where = f"{start['ref']}.{start['leaf']}" if start["ref"] else f"line {start['leaf']}"
+        if same_ref and end["leaf"] != start["leaf"]:
+            where += f"-{end['leaf']}"
+        citation = f"{row['author']}, {title} {where}"
     return {
         "work": row["key"],
         "author": row["author"],

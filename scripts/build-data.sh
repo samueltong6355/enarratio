@@ -39,6 +39,21 @@ echo "== passage index (Vergil, Horace, Catullus, Ovid, Caesar) =="
 PYTHONPATH=server .venv/bin/python -m enarratio.identify build "$SRC"
 
 echo
+echo "== The Latin Library (optional: breadth, no commentary) =="
+LL=""
+for guess in "$HOME/lat_text_latin_library" \
+    "/private/tmp/claude-501/-Users-samueltong"/*/*/scratchpad/lat_text_latin_library; do
+  [ -d "$guess" ] && LL="$guess" && break
+done
+if [ -n "$LL" ]; then
+  PYTHONPATH=server .venv/bin/python -m enarratio.latinlibrary build "$LL" | tail -3
+else
+  echo "  not found. Clone https://github.com/cltk/lat_text_latin_library for wider"
+  echo "  passage identification (Livy, Tacitus, Sallust, Juvenal, Lucretius, Seneca...)."
+  echo "  It carries texts only -- no commentary."
+fi
+
+echo
 if [ ! -f data/morpheus-quantities.db ]; then
   cat <<'MSG'
 == vowel quantities: MISSING ==
