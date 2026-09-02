@@ -26,6 +26,7 @@ from typing import Any
 
 from . import constructions as cx
 from .gate import GateResult, assess
+from .scansion import scan_line
 
 __all__ = ["analyse", "load_nlp", "MODEL_NAME"]
 
@@ -272,6 +273,28 @@ def _whitaker_parses(tok) -> list[dict]:
     return out
 
 
+def _maybe_scan(text: str) -> list[dict] | None:
+    """Scan the passage if it looks like verse.
+
+    Verse is not declared, it is discovered: each line is offered to the hexameter fitter,
+    and if enough of them fit, the passage is verse. Prose does not accidentally scan --
+    a hexameter is a tight template and 15-odd syllables rarely fall into it by chance --
+    so a majority of lines fitting is strong evidence. Requiring *every* line to fit would
+    be wrong, since a single proper name with an unrecorded quantity can defeat one line.
+    """
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    scans = [scan_line(ln) for ln in lines]
+    fitted = [s for s in scans if s.ok]
+    if not fitted:
+        return None
+    # One line out of many fitting is chance; a majority is a metre.
+    if len(lines) > 2 and len(fitted) * 2 < len(lines):
+        return None
+    return [s.as_dict() for s in scans]
+
+
 def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
     """Analyse a Latin excerpt end to end."""
     nlp = load_nlp(model)
@@ -284,9 +307,15 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
     tokens: list[dict] = []
     for t in doc:
         morph = t.morph.to_dict()
+        # LatinCy's uv_normalizer rewrites *virumque* to *uirumque* internally. That is the
+        # right form to analyse and the wrong one to display: a reader who pasted a modern
+        # text should see it back unchanged. Recover the original slice by offset, falling
+        # back to the parser's form if the lengths disagree (an enclitic split, say).
+        surface = text[t.idx : t.idx + len(t.text)]
+        display = surface if len(surface) == len(t.text) else t.text
         tokens.append({
             "i": t.i,
-            "text": t.text,
+            "text": display,
             "whitespace": t.whitespace_,
             "start": t.idx,
             "end": t.idx + len(t.text),
@@ -346,5 +375,6 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
             {"i": i, "start": s.start, "end": s.end, "text": s.text}
             for i, s in enumerate(doc.sents)
         ],
+        "scansion": _maybe_scan(text),
         "model": model,
     }

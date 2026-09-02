@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { analyse, type Analysis, type Construction, type Token } from "./api";
+import { analyse, type Analysis, type Construction, type ScanLine, type Token } from "./api";
 import "./App.css";
 
 const SAMPLES: { label: string; text: string }[] = [
@@ -146,6 +146,8 @@ export default function App() {
                 />
               ))}
             </div>
+
+            {data.scansion && <ScansionPanel lines={data.scansion} />}
 
             {data.constructions.length > 0 && (
               <section className="constructions">
@@ -376,5 +378,84 @@ function TokenPanel({
         </dl>
       </details>
     </div>
+  );
+}
+
+
+function ScansionPanel({ lines }: { lines: ScanLine[] }) {
+  const scanned = lines.filter((l) => l.ok);
+  if (!scanned.length) return null;
+  return (
+    <section className="scansion">
+      <h2>Metre</h2>
+      {lines.map((l, i) => (
+        <div className="scanline" key={i}>
+          {!l.ok ? (
+            <>
+              <div className="verse plain">{l.line}</div>
+              <p className="muted">{l.note}</p>
+            </>
+          ) : (
+            <>
+              <div className="verse">
+                {(() => {
+                  // Walk the syllables in their original order so an elided syllable stays
+                  // where it was written -- it is still on the page, and the reader needs to
+                  // see which one vanished. Grouping by foot alone would move them all to
+                  // the end of the line.
+                  const footOf = new Map<number, number>();
+                  l.feet.forEach((f) => f.syllables.forEach((si) => footOf.set(si, f.n)));
+                  const groups: { foot: number | null; idx: number[] }[] = [];
+                  l.syllables.forEach((_s, si) => {
+                    const f = footOf.get(si) ?? null;
+                    const last = groups[groups.length - 1];
+                    if (last && (f === null || last.foot === f)) last.idx.push(si);
+                    else groups.push({ foot: f, idx: [si] });
+                  });
+                  return groups.map((g, gi) => (
+                    <span className={`foot ${g.foot ? "in" : "out"}`} key={gi}>
+                      {g.idx.map((si) => {
+                        const s = l.syllables[si];
+                        const mark =
+                          s.elided ? "" :
+                          s.quantity === "anceps" ? "\u00D7" :
+                          s.quantity === "long" ? "\u00AF" :
+                          s.quantity === "short" ? "\u02D8" : "";
+                        return (
+                          <span
+                            className={`syl${s.elided ? " elided" : ""}`}
+                            key={si}
+                            title={s.elided ? "elided — not counted in the metre" : s.reason}
+                          >
+                            <span className="mark">{mark}</span>
+                            <span className="syltext">{s.text}</span>
+                          </span>
+                        );
+                      })}
+                    </span>
+                  ));
+                })()}
+              </div>
+              <div className="metrics">
+                <code>{l.pattern}</code>
+                {l.caesurae
+                  .filter((c) => c.name === "penthemimeral" || c.kind === "diaeresis")
+                  .slice(0, 1)
+                  .map((c, k) => (
+                    <span key={k} className="cae" title={c.note}>
+                      {c.name} caesura after &lsquo;{c.after}&rsquo;
+                    </span>
+                  ))}
+              </div>
+              {l.elisions.map((e, k) => (
+                <p className="elision" key={k}>
+                  {e}
+                </p>
+              ))}
+            </>
+          )}
+        </div>
+      ))}
+    </section>
   );
 }
