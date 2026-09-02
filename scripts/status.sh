@@ -26,6 +26,13 @@ bold "-- servers"
 curl -s -o /dev/null -w "  api  :8000  %{http_code}\n" --max-time 1 http://127.0.0.1:8000/api/health 2>/dev/null || echo "  api  :8000  down"
 curl -s -o /dev/null -w "  web  :5173  %{http_code}\n" --max-time 1 http://localhost:5173/ 2>/dev/null || echo "  web  :5173  down"
 echo
+bold "-- AP Latin syllabus coverage"
+if [ -f data/passages.db ]; then
+  PYTHONPATH=server .venv/bin/python scripts/ap_coverage.py 2>/dev/null | tail -4 | sed 's/^/  /'
+else
+  echo "  passages.db not built — run scripts/build-data.sh"
+fi
+echo
 bold "-- next actions (from docs/STATE.md)"
 sed -n '/^## Next actions/,/^## /p' docs/STATE.md 2>/dev/null | grep -E '^[0-9]+\.' | head -6
 echo

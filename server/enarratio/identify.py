@@ -34,7 +34,7 @@ from xml.etree import ElementTree as ET
 
 from .corpus import WORKS, Work, extract_units, format_citation, work_by_key
 
-__all__ = ["build_index", "identify", "index_db"]
+__all__ = ["build_index", "identify", "index_db", "canonical_lines"]
 
 #: Five words is long enough that a shingle is nearly unique in a corpus this size, and
 #: short enough that a two-line paste still yields several.
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS work (
 -- `ref` is the citation path above the leaf, dot-joined: "1" for Aeneid book 1, "1.5" for
 -- Odes 1.5, "1.1" for BG book 1 chapter 1. `leaf` is the verse line or prose section.
 CREATE TABLE IF NOT EXISTS loc (
-    work_id INTEGER, tok_offset INTEGER, ref TEXT, leaf INTEGER
+    work_id INTEGER, tok_offset INTEGER, ref TEXT, leaf INTEGER, text TEXT
 );
 CREATE TABLE IF NOT EXISTS shingle (
     hash INTEGER, work_id INTEGER, tok_offset INTEGER
@@ -115,11 +115,12 @@ def build_index(source_dir: Path, db_path: Path | None = None) -> dict[str, int]
         conn.execute("DELETE FROM loc WHERE work_id = ?", (wid,))
 
         stream: list[str] = []
-        locs: list[tuple[int, int, str, int]] = []
+        locs: list[tuple[int, int, str, int, str]] = []
         for unit in extract_units(source_dir, w):
-            locs.append((wid, len(stream), ".".join(str(x) for x in unit.ref), unit.leaf))
+            locs.append((wid, len(stream), ".".join(str(x) for x in unit.ref),
+                         unit.leaf, unit.text))
             stream.extend(normalise(unit.text))
-        conn.executemany("INSERT INTO loc VALUES (?,?,?,?)", locs)
+        conn.executemany("INSERT INTO loc VALUES (?,?,?,?,?)", locs)
         conn.executemany(
             "INSERT INTO shingle VALUES (?,?,?)",
             ((_hash(stream[i : i + N]), wid, i) for i in range(len(stream) - N + 1)),
@@ -218,3 +219,26 @@ if __name__ == "__main__":
     for key, n in build_index(Path(sys.argv[2]).expanduser()).items():
         print(f"  {key:22} {n:7,} tokens indexed")
     print(f"  -> {index_db()}")
+
+
+def canonical_lines(
+    work: str, ref: str, first: int, last: int, db_path: Path | None = None
+) -> list[dict]:
+    """The editor's own text of a passage, for showing context around a match.
+
+    Useful in its own right -- a reader can see the lines either side of what they pasted,
+    in the edition the citation refers to -- and it is what makes the AP coverage check
+    honest, since it feeds the corpus's own text back through identification cold.
+    """
+    db_path = index_db(db_path)
+    if not db_path.exists():
+        return []
+    conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT loc.leaf, loc.text FROM loc JOIN work ON work.id = loc.work_id "
+        "WHERE work.key = ? AND loc.ref = ? AND loc.leaf BETWEEN ? AND ? "
+        "ORDER BY loc.leaf", (work, ref, first, last)
+    ).fetchall()
+    conn.close()
+    return [{"line": r["leaf"], "text": r["text"]} for r in rows]

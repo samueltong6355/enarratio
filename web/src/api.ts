@@ -50,6 +50,7 @@ export interface Token {
   possibleReadings: WhitakerParse[];
   rankedReadings: Reading[];
   constructions: string[];
+  devices: string[];
   sentence: number;
 }
 
@@ -108,6 +109,12 @@ export interface ScanLine {
   liveCount: number;
 }
 
+export interface LiteraryDevice {
+  key: string; name: string; latinName: string; tokens: number[];
+  evidence: string; explanation: string; effect: string;
+  confidence: number; caveat: string;
+}
+
 export interface Passage {
   work: string; author: string; title: string; unit: string;
   book: number; lineStart: number; lineEnd: number;
@@ -130,6 +137,7 @@ export interface Analysis {
   scansion: ScanLine[] | null;
   passage: Passage | null;
   commentary: Note[];
+  devices: LiteraryDevice[];
   model: string;
 }
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { analyse, type Analysis, type Construction, type Note, type Passage, type ScanLine, type Token } from "./api";
+import { analyse, type Analysis, type Construction, type LiteraryDevice, type Note, type Passage, type ScanLine, type Token } from "./api";
 import "./App.css";
 
 const SAMPLES: { label: string; text: string }[] = [
@@ -151,6 +151,8 @@ export default function App() {
 
             {data.scansion && <ScansionPanel lines={data.scansion} />}
 
+            {data.devices.length > 0 && <DevicePanel devices={data.devices} tokens={data.tokens} />}
+
             {data.commentary.length > 0 && (
               <CommentaryPanel notes={data.commentary} />
             )}
@@ -213,7 +215,13 @@ export default function App() {
               </div>
             )}
             {token && (
-              <TokenPanel token={token} constructions={tokenConstructions} />
+              <TokenPanel
+                token={token}
+                constructions={tokenConstructions}
+                tokenDevices={(data.devices ?? []).filter((d) =>
+                  d.tokens.includes(token.i),
+                )}
+              />
             )}
           </aside>
         </div>
@@ -257,9 +265,11 @@ function TokenSpan({
 function TokenPanel({
   token,
   constructions,
+  tokenDevices,
 }: {
   token: Token;
   constructions: Construction[];
+  tokenDevices: LiteraryDevice[];
 }) {
   const entry = token.lexicon[0];
   const alternatives = token.rankedReadings.filter((r) => r.probability < 0.9);
@@ -321,6 +331,22 @@ function TokenPanel({
                 <p>{c.evidence}</p>
                 {c.caveat && <p className="caveat">{c.caveat}</p>}
               </details>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {tokenDevices.length > 0 && (
+        <section>
+          <h3>Literary figures</h3>
+          {tokenDevices.map((d, i) => (
+            <div className="constr" key={i}>
+              <div className="crow">
+                <strong>{d.name}</strong>
+              </div>
+              <p className="latin-name">{d.latinName}</p>
+              <p>{d.explanation}</p>
+              <p className="hint">{d.effect}</p>
             </div>
           ))}
         </section>
@@ -491,8 +517,10 @@ function CommentaryPanel({ notes }: { notes: Note[] }) {
     <section className="commentary">
       <h2>Commentary</h2>
       <p className="muted">
-        Servius (c. 400) is the ancient commentary; Conington (1863) the standard
-        Victorian one. Both are addressed to the line, not the word.
+        {[...new Set(notes.map((n) => n.author))].join(", ")} — editorial notes on
+        this passage.
+        {notes.some((n) => n.lemma) &&
+          " Notes marked with a word gloss that word specifically."}
       </p>
       {[...byLine.entries()].map(([line, ns]) => (
         <div className="cline" key={line}>
@@ -508,6 +536,39 @@ function CommentaryPanel({ notes }: { notes: Note[] }) {
             </details>
           ))}
         </div>
+      ))}
+    </section>
+  );
+}
+
+
+function DevicePanel({
+  devices,
+  tokens,
+}: {
+  devices: LiteraryDevice[];
+  tokens: Token[];
+}) {
+  return (
+    <section className="devices">
+      <h2>Literary figures</h2>
+      <p className="muted">
+        What the figure <em>does</em> matters more than its name — that is what an
+        examiner asks for.
+      </p>
+      {devices.map((d, i) => (
+        <details className="device" key={i} open={i < 2}>
+          <summary>
+            <strong>{d.name}</strong>
+            <span className="dwords">
+              {d.tokens.map((t) => tokens[t]?.text).filter(Boolean).join(" · ")}
+            </span>
+          </summary>
+          <p>{d.explanation}</p>
+          <p className="effect">{d.effect}</p>
+          <p className="dev-evidence">Found because: {d.evidence}</p>
+          {d.caveat && <p className="caveat">{d.caveat}</p>}
+        </details>
       ))}
     </section>
   );
