@@ -24,6 +24,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import cases as _cases  # noqa: F401  -- importing registers the case detectors
 from . import constructions as cx
 from .gate import GateResult, assess
 from .commentary import notes_for
