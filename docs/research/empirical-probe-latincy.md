@@ -58,36 +58,44 @@ has no "this is not Latin" output and no calibrated confidence at the sentence l
 provide — lexicon coverage, character n-gram language identification, morphological
 agreement checking, and finite-verb presence. It cannot be "did the parser succeed".
 
-## Finding 2 — The bundled lookup table is not a lexicon, and not an OOV gate
+## Finding 2 — The bundled lookup table is not an OOV gate
+
+> **Corrected.** An earlier revision of this note reported that `regis` and `bella` were
+> absent from the table. That was a bug in the probe, not a fact about LatinCy: it queried
+> the table through spaCy's string-hash interface, which does not do what I assumed. Read
+> the raw `la_latincy_lookups/data/la_lemma_lookup.json` instead. The per-word claims below
+> are the corrected ones; the conclusion happens to be unchanged, but it now rests on real
+> evidence. The table is also stored **u-normalised** (`uirum` present, `virum` absent), so
+> any query must fold v→u first.
 
 `la_latincy_lookups` ships a `lemma_lookup` table with **909,669 entries**, which looks
-like an offline full-form lexicon. It is not usable as one.
+like an offline full-form lexicon. It is not usable as a measure of Latinity.
 
-```
-known('arma')        = False      # first word of the Aeneid
-known('regis')       = False
-known('uirum')       = True
-known('quinque')     = True
-known('consectetur') = True       # ...a Lorem ipsum word
-```
+Present: `regis`, `bella`, `amor`, `cano`, `carmine`, `quinque`, `uirum`.
+Absent: **`arma`**, **`est`**, **`et`**, **`qui`**, **`quo`** — some of the commonest words
+in the language. Also present: `consectetur`, a Lorem ipsum word.
 
-Measured in-vocabulary rate by input type:
+Measured in-vocabulary rate (v→u folded, macrons stripped):
 
-| Input | In-vocabulary |
-|---|---|
-| Caesar, *BG* 1.1 | 64% |
-| Vergil, *Aen.* 1.1–2 | 38% |
-| Lorem ipsum | 55% |
-| Italian (Dante) | 23% |
-| English | 18% |
+| Input | In-vocabulary | Words it fails to recognise |
+|---|---|---|
+| Cicero, *Cat.* 1.1 | 86% | `quo` |
+| Vulgate, John 1.1 | 78% | `principio`, `et` |
+| Lorem ipsum | **70%** | `lorem`, `adipiscing`, `elit` |
+| Broken student Latin | 70% | `est`, `et`, `canis` |
+| Caesar, *BG* 1.1 | 64% | `est`, `omnis`, `quarum`, `unam` |
+| Vergil, *Aen.* 1.1 | **45%** | `arma`, `uirumque`, `troiae`, `qui`, `oris`, `fato` |
+| Italian | 30% | — |
+| English | 17% | — |
+| Gibberish | 0% | — |
 
-Real Vergil scores *below* Lorem ipsum. The table is skewed (the sample entries are
-biblical proper nouns like `Aaron`) and cannot separate Latin from non-Latin, nor serve as
-the `is_known_word` oracle that safe enclitic splitting needs.
+Lorem ipsum scores 70% and Vergil 45%. A gate built on this table would reject the *Aeneid*
+and accept filler text. The table is evidently a lemma list from some particular corpus
+rather than a coverage-complete form list, and it cannot separate Latin from non-Latin nor
+serve as the `is_known_word` oracle that safe enclitic splitting needs.
 
-**Consequence:** a genuine full-form lexicon must come from elsewhere — Whitaker's WORDS
-`DICTLINE`, Morpheus, LEMLAT, or paradigm expansion over Lewis & Short headwords. This is
-now a hard requirement of the data-acquisition plan, not a nice-to-have.
+**Consequence:** the vocabulary signal must come from a real morphological analyser. See
+Finding 7 — `latincy-lexicon` supplies one.
 
 ## Finding 3 — Competing analyses ARE recoverable, with context-sensitive probabilities
 
@@ -173,6 +181,73 @@ matches the index-folding convention in `server/enarratio/normalize.py`.
 `cltk 2.5.1` declares `requires_python >=3.13`, while the spaCy/LatinCy stack is pinned to
 3.12. They cannot share one environment. CLTK should be treated as an optional, separately
 installed tool rather than a core dependency.
+
+## Finding 7 — `latincy-lexicon` supplies the complete candidate set and the paradigms
+
+`pip install latincy-lexicon` (v0.11.1, MIT) adds `nlp.add_pipe("whitakers_words")`: Whitaker's
+WORDS and Lewis & Short as spaCy components, with the data bundled — no download step.
+
+`token._.ww` returns **every** analysis the stem+ending engine can produce, ranked using the
+upstream tagger's output. Each entry is fully specified:
+
+```json
+{"form": "regis", "lemma": "rex", "pos": "N", "decl": "3.0", "meaning": "king;",
+ "stem": "reg", "ending": "is", "case": "GEN", "number": "S", "age": "A", "freq": "A"}
+```
+
+For `regis` it yields four slots of *rēx* plus *regō* (V) and *regius* (ADJ) — and the ranking
+flips to put *regō* first in `regis populum`. `token._.lexicon` gives dictionary entries with
+principal parts, declension and frequency; `paradigm_generator` gives full paradigms and
+reinflection (`scribit` → `scribunt`, `scribebat`, `scribitur`).
+
+This is the missing layer from Finding 2, and it resolves the architecture: **LatinCy ranks,
+Whitaker enumerates.** The candidate set is complete (so the reader sees every possible
+reading) and the ranking is contextual (so the reader is told which one wins, and by how much).
+
+## Finding 8 — The gate can test for Latin, but not for grammaticality
+
+Measured across genuine prose, verse, late and Neo-Latin, deliberately broken student Latin,
+and five other languages:
+
+| Signal | Real Latin | Not Latin | Broken Latin |
+|---|---|---|---|
+| Whitaker analysability | 86–100% | 0–58% | ~100% |
+| `lingua` Latin confidence | 0.83–1.00 | 0.002–0.04 | 0.45–0.99 |
+
+**The two signals are complementary and should be combined.** `lingua` cleanly rejects English
+(0.020), Italian (0.039), Spanish (0.002) and Romanian (0.003), but rates Lorem ipsum 0.996 —
+which Whitaker catches at 58%. Conversely `lingua` collapses on short input (*Carpe diem.* =
+0.338) where Whitaker gives 100%. Neither alone is sufficient; together they separate cleanly.
+
+**Grammaticality is a different matter, and the obvious test fails badly.** Checking
+adjective/determiner agreement against its head:
+
+| Text | Agreement violations | |
+|---|---|---|
+| Vergil, *Aen.* 1.1–3 | **5 / 6** | false positive |
+| Horace, *C.* 1.5 | **5 / 12** | false positive |
+| Broken student Latin | 2 / 3 | true positive |
+| Word salad (*Rosa mensa dominus…*) | 0 / 0 | **missed** |
+
+Poetic hyperbaton separates adjective from noun by whole lines, the parser mis-attaches the
+modifier, and the checker reports a violation. Vergil and Horace — precisely the authors a
+student most needs help with — score *worse* than deliberately broken Latin. Meanwhile a list
+of unconnected nouns passes cleanly, since it violates no agreement rule at all. Requiring a
+finite verb does not rescue this either: the word salad has none, but neither does the genuine
+Latin *Omnia praeclara rara* (ellipsis of *esse*).
+
+**Consequence — a deliberate departure from the original specification.** The brief asked the
+program to verify the passage is grammatically sound and to proceed only if it is. Implemented
+literally, that gate would refuse the *Aeneid*. So the gate is split:
+
+- **Language identity** (*is this Latin?*) — gated, using the two complementary signals. This
+  is reliable, and refusing non-Latin input is correct behaviour.
+- **Grammaticality** (*is this well-formed Latin?*) — **never** blocks analysis. Anomalies are
+  surfaced as flagged observations on the affected tokens, with the caveat that poetic word
+  order is the likeliest explanation. The reader decides.
+
+This fails soft on purpose. A tool that silently refuses hard passages is worse than useless to
+someone translating hard passages.
 
 ## What this means for the build
 
