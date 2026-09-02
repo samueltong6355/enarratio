@@ -32,37 +32,23 @@ from pathlib import Path
 from typing import Iterable
 from xml.etree import ElementTree as ET
 
-from .commentary import _readable_xml
+from .corpus import WORKS, Work, extract_units, format_citation, work_by_key
 
-__all__ = ["build_index", "identify", "index_db", "WORKS"]
+__all__ = ["build_index", "identify", "index_db"]
 
 #: Five words is long enough that a shingle is nearly unique in a corpus this size, and
 #: short enough that a two-line paste still yields several.
 N = 5
 
 
-@dataclass(frozen=True)
-class Work:
-    key: str
-    author: str
-    title: str
-    filename: str
-    #: How the citation reads: the Aeneid has books, the Eclogues poems.
-    unit: str = "book"
-
-
-WORKS: tuple[Work, ...] = (
-    Work("vergil.aeneid", "Vergil", "Aeneid", "verg.a_lat.xml"),
-    Work("vergil.eclogues", "Vergil", "Eclogues", "verg.ecl_lat.xml", unit="poem"),
-    Work("vergil.georgics", "Vergil", "Georgics", "verg.g_lat.xml"),
-)
-
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS work (
     id INTEGER PRIMARY KEY, key TEXT UNIQUE, author TEXT, title TEXT, unit TEXT
 );
+-- `ref` is the citation path above the leaf, dot-joined: "1" for Aeneid book 1, "1.5" for
+-- Odes 1.5, "1.1" for BG book 1 chapter 1. `leaf` is the verse line or prose section.
 CREATE TABLE IF NOT EXISTS loc (
-    work_id INTEGER, tok_offset INTEGER, book INTEGER, line INTEGER
+    work_id INTEGER, tok_offset INTEGER, ref TEXT, leaf INTEGER
 );
 CREATE TABLE IF NOT EXISTS shingle (
     hash INTEGER, work_id INTEGER, tok_offset INTEGER
@@ -73,12 +59,29 @@ CREATE INDEX IF NOT EXISTS loc_off ON loc (work_id, tok_offset);
 
 
 def normalise(text: str) -> list[str]:
-    """Reduce to the token stream both sides of the comparison can agree on."""
+    """Reduce to the token stream both sides of the comparison can agree on.
+
+    Beyond case, macrons and *j/v*, editions differ in a handful of systematic ways that
+    would otherwise wreck a match. The one that caught this code out is the archaic *o* for
+    *u*: Perseus prints *volnus* at *Aeneid* 4.2 where a modern school text prints *vulnus*,
+    and that single word cost three of the five shingles in a one-line query -- enough to
+    take the passage from identified to unidentified. The rules below are the well-attested
+    archaisms only, each written narrowly enough not to damage ordinary words: *uos* (you)
+    must survive while *seruos* becomes *seruus*.
+    """
     t = unicodedata.normalize("NFD", text.lower())
     t = "".join(c for c in t if unicodedata.category(c) != "Mn")
     t = t.replace("æ", "ae").replace("œ", "oe")
     t = t.replace("j", "i").replace("v", "u")
     t = re.sub(r"[^a-z\s]", " ", t)
+    # volnus/vulnus, volt/vult, volgus/vulgus -- archaic o before l + consonant.
+    t = re.sub(r"\buo(l[ntgpc])", r"uu\1", t)
+    # divom/divum, servos/servus, equos/equus -- archaic o in the ending, but never the
+    # bare pronoun *uos*, which the look-behind excludes.
+    t = re.sub(r"(?<=[a-z])uo([ms])\b", r"uu\1", t)
+    # quom/cum, quoi/cui -- the older spellings of the conjunction and the dative.
+    t = re.sub(r"\bquom\b", "cum", t)
+    t = re.sub(r"\bquoi\b", "cui", t)
     return t.split()
 
 
@@ -92,33 +95,6 @@ def _hash(words: Iterable[str]) -> int:
     return h & 0x7FFFFFFFFFFFFFFF
 
 
-def _lines_of(path: Path, unit: str) -> list[tuple[int, int, str]]:
-    """(book, line, text) for every verse, numbering by position.
-
-    Perseus marks only every fifth line with ``n``, so lines are counted sequentially and
-    the counter is snapped to each anchor it meets -- which both fills in the gaps and
-    catches any drift.
-    """
-    root = ET.fromstring(_readable_xml(path))
-    out: list[tuple[int, int, str]] = []
-    for div in root.iter("div1"):
-        if div.get("type", "").lower() not in (unit, "book", "poem"):
-            continue
-        book = int(re.match(r"\d+", div.get("n", "") or "0").group()) if re.match(r"\d+", div.get("n", "") or "") else None
-        if book is None:
-            continue
-        counter = 0
-        for el in div.iter("l"):
-            counter += 1
-            n = el.get("n")
-            if n and n.isdigit():
-                counter = int(n)
-            text = re.sub(r"\s+", " ", "".join(el.itertext())).strip()
-            if text:
-                out.append((book, counter, text))
-    return out
-
-
 def index_db(path: Path | None = None) -> Path:
     return path or Path(__file__).resolve().parents[2] / "data" / "passages.db"
 
@@ -130,23 +106,19 @@ def build_index(source_dir: Path, db_path: Path | None = None) -> dict[str, int]
     conn.executescript(SCHEMA)
     counts: dict[str, int] = {}
     for w in WORKS:
-        path = source_dir / w.filename
-        if not path.exists():
-            counts[w.key] = 0
-            continue
         conn.execute(
             "INSERT OR IGNORE INTO work (key, author, title, unit) VALUES (?,?,?,?)",
-            (w.key, w.author, w.title, w.unit),
+            (w.key, w.author, w.title, w.labels[-1]),
         )
         wid = conn.execute("SELECT id FROM work WHERE key = ?", (w.key,)).fetchone()[0]
         conn.execute("DELETE FROM shingle WHERE work_id = ?", (wid,))
         conn.execute("DELETE FROM loc WHERE work_id = ?", (wid,))
 
         stream: list[str] = []
-        locs: list[tuple[int, int, int, int]] = []
-        for book, line, text in _lines_of(path, w.unit):
-            locs.append((wid, len(stream), book, line))
-            stream.extend(normalise(text))
+        locs: list[tuple[int, int, str, int]] = []
+        for unit in extract_units(source_dir, w):
+            locs.append((wid, len(stream), ".".join(str(x) for x in unit.ref), unit.leaf))
+            stream.extend(normalise(unit.text))
         conn.executemany("INSERT INTO loc VALUES (?,?,?,?)", locs)
         conn.executemany(
             "INSERT INTO shingle VALUES (?,?,?)",
@@ -203,34 +175,39 @@ def identify(text: str, db_path: Path | None = None, min_votes: int = 3) -> dict
         conn.close()
         return None
 
-    work = conn.execute("SELECT * FROM work WHERE id = ?", (wid,)).fetchone()
+    row = conn.execute("SELECT * FROM work WHERE id = ?", (wid,)).fetchone()
     start = conn.execute(
-        "SELECT book, line FROM loc WHERE work_id = ? AND tok_offset <= ? "
+        "SELECT ref, leaf FROM loc WHERE work_id = ? AND tok_offset <= ? "
         "ORDER BY tok_offset DESC LIMIT 1", (wid, base)
     ).fetchone()
     end = conn.execute(
-        "SELECT book, line FROM loc WHERE work_id = ? AND tok_offset <= ? "
+        "SELECT ref, leaf FROM loc WHERE work_id = ? AND tok_offset <= ? "
         "ORDER BY tok_offset DESC LIMIT 1", (wid, base + len(words) - 1)
     ).fetchone()
     conn.close()
     if start is None:
         return None
 
+    w = work_by_key(row["key"])
+    ref = tuple(int(x) for x in start["ref"].split(".") if x)
+    same_ref = end is not None and end["ref"] == start["ref"]
+    citation = (
+        format_citation(w, ref, start["leaf"], end["leaf"] if same_ref else None)
+        if w else f"{row['author']}, {row['title']} {start['ref']}.{start['leaf']}"
+    )
     return {
-        "work": work["key"],
-        "author": work["author"],
-        "title": work["title"],
-        "unit": work["unit"],
-        "book": start["book"],
-        "lineStart": start["line"],
-        "lineEnd": (end or start)["line"],
+        "work": row["key"],
+        "author": row["author"],
+        "title": row["title"],
+        "unit": row["unit"],
+        "ref": start["ref"],
+        "refEnd": end["ref"] if end else start["ref"],
+        "lineStart": start["leaf"],
+        "lineEnd": (end or start)["leaf"],
         "confidence": round(min(1.0, n_votes / possible), 3),
         "matchedShingles": n_votes,
         "possibleShingles": possible,
-        "citation": (
-            f"{work['author']}, {work['title']} {start['book']}.{start['line']}"
-            + (f"-{end['line']}" if end and end["line"] != start["line"] else "")
-        ),
+        "citation": citation,
     }
 
 

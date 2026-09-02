@@ -307,9 +307,16 @@ def _commentary_for(passage: dict | None) -> list[dict]:
     if not passage:
         return []
     out: list[dict] = []
+    seen: set[tuple] = set()
     first, last = passage["lineStart"], min(passage["lineEnd"], passage["lineStart"] + 24)
     for line in range(first, last + 1):
-        for note in notes_for(passage["work"], passage["book"], line, limit=6):
+        for note in notes_for(passage["work"], passage["ref"], line, limit=8):
+            # A prose note carries no line and would otherwise repeat for every line in the
+            # range; a verse note spanning lines would repeat likewise.
+            key = (note["author"], note["lemma"], note["text"][:60])
+            if key in seen:
+                continue
+            seen.add(key)
             note["line"] = line
             out.append(note)
     return out

@@ -10,7 +10,7 @@
 #
 # The Perseus "hopper" open-source dump is at
 #   https://github.com/PerseusDL/hopper  (or the GreekRoman tarball from Perseus downloads)
-# and the directory wanted is  Classics/Vergil/opensource/.
+# and the directory wanted is  Classics/  (the whole tree, not one author).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p data
@@ -18,24 +18,24 @@ mkdir -p data
 SRC="${1:-}"
 if [ -z "$SRC" ]; then
   for guess in \
-      "$HOME/hopper/Classics/Vergil/opensource" \
-      "/private/tmp/claude-501/-Users-samueltong"/*/*/scratchpad/hopper/Classics/Vergil/opensource; do
+      "$HOME/hopper/Classics" \
+      "/private/tmp/claude-501/-Users-samueltong"/*/*/scratchpad/hopper/Classics; do
     [ -d "$guess" ] && SRC="$guess" && break
   done
 fi
 if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
   echo "Perseus source directory not found."
-  echo "Pass it explicitly:  scripts/build-data.sh /path/to/Classics/Vergil/opensource"
+  echo "Pass it explicitly:  scripts/build-data.sh /path/to/hopper/Classics"
   exit 1
 fi
 echo "Source: $SRC"
 
 echo
-echo "== commentary (Servius, Conington) =="
+echo "== commentary (Servius, Conington, Shorey, Merrill, Allen & Greenough) =="
 PYTHONPATH=server .venv/bin/python -m enarratio.commentary ingest "$SRC"
 
 echo
-echo "== passage index (Aeneid, Eclogues, Georgics) =="
+echo "== passage index (Vergil, Horace, Catullus, Ovid, Caesar) =="
 PYTHONPATH=server .venv/bin/python -m enarratio.identify build "$SRC"
 
 echo
