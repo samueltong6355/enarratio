@@ -1,6 +1,6 @@
 # State of play
 
-**Updated:** 2026-09-02, after commentary and passage identification landed.
+**Updated:** 2026-09-02, after the corpus expansion, literary figures, and the AP benchmark.
 **Read this first; update it before you stop.** `./scripts/status.sh` prints a live readout.
 
 ---
@@ -29,8 +29,10 @@ to be sitting on local disk already keyed by `(book, line)`.
 | Construction detection | 28 rules | 27 passing regression tests, each hand-checked against A&G |
 | Reading interface | done | driven with a real browser; no console errors |
 | **Scansion (hexameter)** | done, wired in | 6/7 lines correct incl. *Aen.* 1.1, 1.3, 1.5, *Ecl.* 1.1; verified in browser |
-| **Passage identification** | **done, wired in** | exact, macronised and `VIRVMQVE` orthography all resolve to *Aen.* 1.1; non-Vergil correctly declined |
-| **Commentary (Servius, Conington)** | **done, wired in** | 18,611 notes ingested; Servius on *arma* renders in the browser |
+| **Passage identification** | done, wired in | 12 works, 301k tokens; macronised and `VIRVMQVE` orthography both resolve; unindexed authors correctly declined |
+| **Commentary** | done, wired in | 28,747 notes from 5 commentators; Allen & Greenough's Caesar notes are word-level |
+| **Literary figures** | **done, wired in** | 17 figures, each explaining its *effect*; 89 tests |
+| **AP Latin syllabus** | **100% covered** | `scripts/ap_coverage.py`: 897/897 units, 18/18 passages identified, 18/18 with commentary |
 
 Everything above is reachable from the interface. Verse is detected rather than declared:
 each line is offered to the hexameter fitter and the passage counts as verse if a majority
@@ -40,11 +42,9 @@ fit, which prose never does.
 
 ## Next actions
 
-1. **Extend the corpus beyond Vergil.** Identification and commentary work, but only for
-   the *Aeneid*, *Eclogues* and *Georgics*, because that is where line-keyed commentary
-   exists. Indexing Perseus `canonical-latinLit` (1,078 TEI files, already downloaded) would
-   let Caesar, Cicero, Ovid and Horace be identified even where no commentary follows.
-   The index cost is trivial — all of Vergil is 83k tokens.
+1. **Cicero.** The one conspicuous gap in the canon: no Cicero text is indexed and no
+   Cicero commentary is ingested, so the *Catilinarians* analyse but get no citation and no
+   notes. Perseus's `cic.oct*_lat.xml` are already on disk.
 2. **The eleven missing clause detectors.** We cover ~12% of A&G's ~230 named constructions,
    and the gap is almost entirely the subordinate-clause and mood system — where students
    actually get stuck. All eleven are closed-conjunction-list + mood rules, the same shape as
@@ -83,8 +83,14 @@ fit, which prose never does.
 - `scripts/build-data.sh` rebuilds `commentary.db` and `passages.db` from the Perseus dump,
   but `morpheus-quantities.db` must still be copied by hand from Winge's latin-macronizer;
   without it scansion degrades to position-and-diphthong evidence.
-- Commentary and identification cover **Vergil only**. Anything else analyses fully but
-  receives no citation and no notes.
+- Identification and commentary cover twelve works (Vergil, Caesar, Horace, Catullus,
+  Ovid *Met.*). **Cicero, Livy, Tacitus and Seneca are not indexed** — they analyse fully
+  but receive no citation and no notes.
+- Commentary for AP Caesar *BG* 4.24–36 covers 10 of 13 chapters; the other three have no
+  Allen & Greenough note.
+- Metaphor, oxymoron, transferred epithet and true hendiadys are **deliberately not
+  detected**: they need semantics a dependency parse cannot supply, and guessing them
+  structurally would produce confident nonsense.
 - **Synizesis is not implemented**, so *Aen.* 1.2 (`Laviniaque` → *Lāvīnjă-que*) does not
   scan. Only hexameter is implemented; elegiac couplet, hendecasyllable and the lyric
   strophes are not.

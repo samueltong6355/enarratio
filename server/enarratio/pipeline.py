@@ -27,6 +27,7 @@ from typing import Any
 from . import constructions as cx
 from .gate import GateResult, assess
 from .commentary import notes_for
+from .devices import detect_devices
 from .identify import identify
 from .scansion import scan_line
 
@@ -365,11 +366,13 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
             "possibleReadings": _whitaker_parses(t),
             "rankedReadings": candidates[t.i] if t.i < len(candidates) else [],
             "constructions": [],
+            "devices": [],
             "sentence": 0,
         })
 
     # Constructions are detected per sentence, since every rule is clause-scoped.
     found: list[cx.Construction] = []
+    sentence_views: list[list[cx.Tok]] = []
     for s_i, sent in enumerate(doc.sents):
         offset = sent.start
         toks = [
@@ -391,6 +394,32 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
         for t in sent:
             tokens[t.i]["sentence"] = s_i
         found.extend(cx.detect_all(filled))
+        sentence_views.append(filled)
+
+    devices = detect_devices(sentence_views)
+
+    # An adjective far from its noun is hyperbaton, not a fault. The gate reports such
+    # pairs as agreement anomalies because it runs before the figures are known; now that
+    # they are, drop any anomaly the figure already accounts for. Reporting the same pair
+    # once as art and again as error is worse than reporting it either way.
+    explained = {
+        pair
+        for d in devices if d.key == "hyperbaton"
+        for pair in (frozenset(d.tokens),)
+    }
+    gate_dict = gate.as_dict()
+    kept = []
+    for a in gate_dict["anomalies"]:
+        if a["kind"] == "agreement":
+            tok = a["token"]
+            if any(tok in pair for pair in explained):
+                continue
+        kept.append(a)
+    gate_dict["anomalies"] = kept
+    for d in devices:
+        for i in d.tokens:
+            if 0 <= i < len(tokens):
+                tokens[i].setdefault("devices", []).append(d.key)
 
     for c in found:
         for i in c.tokens:
@@ -399,9 +428,10 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
 
     return {
         "text": text,
-        "gate": gate.as_dict(),
+        "gate": gate_dict,
         "tokens": tokens,
         "constructions": [c.as_dict() for c in found],
+        "devices": [d.as_dict() for d in devices],
         "sentences": [
             {"i": i, "start": s.start, "end": s.end, "text": s.text}
             for i, s in enumerate(doc.sents)
