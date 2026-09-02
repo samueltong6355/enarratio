@@ -238,3 +238,39 @@ details p { font-size: 13px; }
 }
 .metrics .cae { font-size: 12px; color: var(--muted); font-style: italic; }
 .elision { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+
+/* ---------- citation + commentary ---------- */
+
+.citation {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding: 8px 14px; margin-bottom: 10px; border-radius: var(--radius);
+  background: var(--accent-soft); border-left: 3px solid var(--accent);
+}
+.citation.unsure { border-left-color: var(--warn); }
+.cit-work { font-size: 16px; font-weight: 600; color: var(--accent); }
+.cit-conf { font-size: 12px; color: var(--muted); }
+
+.commentary { margin-top: 28px; }
+.commentary h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); margin: 0 0 6px; font-weight: 600;
+}
+.cline { margin-top: 14px; }
+.cline h3 {
+  font-size: 12px; color: var(--muted); margin: 0 0 6px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.note {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 14px; margin-bottom: 6px;
+}
+.note.la { border-left: 3px solid var(--gold); }
+.note.en { border-left: 3px solid var(--line); }
+.note summary { color: var(--ink); font-size: 14px; display: flex; gap: 8px; align-items: baseline; }
+.note summary em { color: var(--accent); font-size: 13px; }
+.note .lang {
+  margin-left: auto; font-size: 11px; color: var(--muted);
+  border: 1px solid var(--line); padding: 0 7px; border-radius: 10px;
+}
+.note p { margin: 8px 0 0; font-size: 14px; line-height: 1.65; }
+.note.la p { font-style: italic; }

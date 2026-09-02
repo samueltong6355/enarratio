@@ -26,6 +26,8 @@ from typing import Any
 
 from . import constructions as cx
 from .gate import GateResult, assess
+from .commentary import notes_for
+from .identify import identify
 from .scansion import scan_line
 
 __all__ = ["analyse", "load_nlp", "MODEL_NAME"]
@@ -295,12 +297,34 @@ def _maybe_scan(text: str) -> list[dict] | None:
     return [s.as_dict() for s in scans]
 
 
+def _commentary_for(passage: dict | None) -> list[dict]:
+    """Editorial notes bearing on the identified lines.
+
+    Notes are gathered per line and tagged with the line they belong to, so the interface
+    can show them beside the right verse rather than as an undifferentiated heap. The line
+    span is capped because a long paste would otherwise pull in hundreds of notes.
+    """
+    if not passage:
+        return []
+    out: list[dict] = []
+    first, last = passage["lineStart"], min(passage["lineEnd"], passage["lineStart"] + 24)
+    for line in range(first, last + 1):
+        for note in notes_for(passage["work"], passage["book"], line, limit=6):
+            note["line"] = line
+            out.append(note)
+    return out
+
+
 def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
     """Analyse a Latin excerpt end to end."""
     nlp = load_nlp(model)
     doc = nlp(text)
 
     gate: GateResult = assess(doc, text)
+
+    # Identify the passage before anything else needs it: the citation is the key that
+    # unlocks commentary, and it costs a few milliseconds against the shingle index.
+    passage = identify(text)
 
     candidates = _candidate_readings(nlp, doc)
 
@@ -376,5 +400,7 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
             for i, s in enumerate(doc.sents)
         ],
         "scansion": _maybe_scan(text),
+        "passage": passage,
+        "commentary": _commentary_for(passage),
         "model": model,
     }

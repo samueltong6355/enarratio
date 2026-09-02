@@ -1,6 +1,6 @@
 # State of play
 
-**Updated:** 2026-09-02, after wiring scansion into the interface.
+**Updated:** 2026-09-02, after commentary and passage identification landed.
 **Read this first; update it before you stop.** `./scripts/status.sh` prints a live readout.
 
 ---
@@ -28,7 +28,9 @@ to be sitting on local disk already keyed by `(book, line)`.
 | Language gate | done | genuine Latin ≥86% analysable vs ≤58% for everything else |
 | Construction detection | 28 rules | 27 passing regression tests, each hand-checked against A&G |
 | Reading interface | done | driven with a real browser; no console errors |
-| **Scansion (hexameter)** | **done, wired in** | 6/7 lines correct incl. *Aen.* 1.1, 1.3, 1.5, *Ecl.* 1.1; verified in browser |
+| **Scansion (hexameter)** | done, wired in | 6/7 lines correct incl. *Aen.* 1.1, 1.3, 1.5, *Ecl.* 1.1; verified in browser |
+| **Passage identification** | **done, wired in** | exact, macronised and `VIRVMQVE` orthography all resolve to *Aen.* 1.1; non-Vergil correctly declined |
+| **Commentary (Servius, Conington)** | **done, wired in** | 18,611 notes ingested; Servius on *arma* renders in the browser |
 
 Everything above is reachable from the interface. Verse is detected rather than declared:
 each line is offered to the hexameter fitter and the passage counts as verse if a majority
@@ -38,17 +40,12 @@ fit, which prose never does.
 
 ## Next actions
 
-1. **Commentary ingest — highest value for effort.** `scratchpad/hopper/` already contains
-   `Classics/Vergil/opensource/serv.verg.aen_lat.xml` (Servius, all 12 books) and
-   `c.verg.aen{1,2}_eng.xml` (Conington), where every note is
-   `<div2 type="commline" n="LINE">` inside `<div1 type="book" n="BOOK">`. Parse once into
-   SQLite keyed by `(work, book, line)`. No fuzzy matching needed. See
-   `docs/research/commentary-sources.md`.
-2. **Passage identification.** Hashed word-5-gram inverted index over the normalised token
-   stream, SQLite `(hash, work_id, token_offset)`. Do *not* use FTS5, MinHash or embeddings —
-   measured and rejected. This unlocks (2) for arbitrary input. See
-   `docs/research/passage-identification.md`.
-3. **The eleven missing clause detectors.** We cover ~12% of A&G's ~230 named constructions,
+1. **Extend the corpus beyond Vergil.** Identification and commentary work, but only for
+   the *Aeneid*, *Eclogues* and *Georgics*, because that is where line-keyed commentary
+   exists. Indexing Perseus `canonical-latinLit` (1,078 TEI files, already downloaded) would
+   let Caesar, Cicero, Ovid and Horace be identified even where no commentary follows.
+   The index cost is trivial — all of Vergil is 83k tokens.
+2. **The eleven missing clause detectors.** We cover ~12% of A&G's ~230 named constructions,
    and the gap is almost entirely the subordinate-clause and mood system — where students
    actually get stuck. All eleven are closed-conjunction-list + mood rules, the same shape as
    the detectors that already work: `quin`/`quominus` (558–9), substantive purpose after
@@ -57,9 +54,9 @@ fit, which prose never does.
    `antequam`/`priusquam` (551), `dum`/`donec`/`quoad` (553–6), conditional protasis/apodosis
    (513–17), relative clause of purpose (531.2), noun-clause `quod` of fact (572). See
    `docs/research/syntax-taxonomy.md`.
-4. **Allusion.** Tesserae bigram index over the local `.tess` corpus with Tesserae's published
+3. **Allusion.** Tesserae bigram index over the local `.tess` corpus with Tesserae's published
    scoring formula. `knauer.json` gives verified Vergil↔Homer pairs as ground truth.
-5. **Cultural background.** Hardest, least settled. Note the negative finding: the Perseus
+4. **Cultural background.** Hardest, least settled. Note the negative finding: the Perseus
    hopper dump does **not** contain Smith's dictionaries — the empty directories are a
    deliberate rights carve-out, not a failed download.
 
@@ -83,8 +80,11 @@ fit, which prose never does.
 
 ## Known bugs and limitations
 
-- The `data/` download is not automated yet: `morpheus-quantities.db` must be copied by hand
-  or scansion silently degrades to position-and-diphthong evidence. `run.sh` should fetch it.
+- `scripts/build-data.sh` rebuilds `commentary.db` and `passages.db` from the Perseus dump,
+  but `morpheus-quantities.db` must still be copied by hand from Winge's latin-macronizer;
+  without it scansion degrades to position-and-diphthong evidence.
+- Commentary and identification cover **Vergil only**. Anything else analyses fully but
+  receives no citation and no notes.
 - **Synizesis is not implemented**, so *Aen.* 1.2 (`Laviniaque` → *Lāvīnjă-que*) does not
   scan. Only hexameter is implemented; elegiac couplet, hendecasyllable and the lyric
   strophes are not.
