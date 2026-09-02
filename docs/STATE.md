@@ -29,7 +29,7 @@ to be sitting on local disk already keyed by `(book, line)`.
 | Construction detection | 28 rules | 27 passing regression tests, each hand-checked against A&G |
 | Reading interface | done | driven with a real browser; no console errors |
 | **Scansion (hexameter)** | done, wired in | 6/7 lines correct incl. *Aen.* 1.1, 1.3, 1.5, *Ecl.* 1.1; verified in browser |
-| **Passage identification** | done, wired in | 12 works, 301k tokens; macronised and `VIRVMQVE` orthography both resolve; unindexed authors correctly declined |
+| **Passage identification** | done, wired in | 15 works, 376k tokens; macronised and `VIRVMQVE` orthography both resolve; unindexed authors correctly declined |
 | **Commentary** | done, wired in | 28,747 notes from 5 commentators; Allen & Greenough's Caesar notes are word-level |
 | **Literary figures** | **done, wired in** | 17 figures, each explaining its *effect*; 89 tests |
 | **AP Latin syllabus** | **100% covered** | `scripts/ap_coverage.py`: 897/897 units, 18/18 passages identified, 18/18 with commentary |
@@ -42,9 +42,13 @@ fit, which prose never does.
 
 ## Next actions
 
-1. **Cicero.** The one conspicuous gap in the canon: no Cicero text is indexed and no
-   Cicero commentary is ingested, so the *Catilinarians* analyse but get no citation and no
-   notes. Perseus's `cic.oct*_lat.xml` are already on disk.
+1. **Cicero commentary.** The *texts* are now indexed (*In Catilinam*, *Philippics*, *De
+   Lege Agraria*) and cite correctly, but Allen & Greenough's *Select Orations* is not
+   ingested. Its `<div1 type="speech">` keys are a mix of abbreviations (`S. Rosc.`, `Man.`,
+   `Arch.`) and bare numbers that **repeat across different orations** (`1` appears twice,
+   `2` three times), so there is no unambiguous mapping to a work. Resolving it means
+   reading each speech's `<head>` and matching by title. Until then a wrong mapping would
+   file a *Pro Milone* note under *In Catilinam*, which is worse than no note at all.
 2. **The eleven missing clause detectors.** We cover ~12% of A&G's ~230 named constructions,
    and the gap is almost entirely the subordinate-clause and mood system — where students
    actually get stuck. All eleven are closed-conjunction-list + mood rules, the same shape as
@@ -83,9 +87,9 @@ fit, which prose never does.
 - `scripts/build-data.sh` rebuilds `commentary.db` and `passages.db` from the Perseus dump,
   but `morpheus-quantities.db` must still be copied by hand from Winge's latin-macronizer;
   without it scansion degrades to position-and-diphthong evidence.
-- Identification and commentary cover twelve works (Vergil, Caesar, Horace, Catullus,
-  Ovid *Met.*). **Cicero, Livy, Tacitus and Seneca are not indexed** — they analyse fully
-  but receive no citation and no notes.
+- Identification covers fifteen works (Vergil, Caesar, Horace, Catullus, Ovid *Met.*,
+  Cicero's orations). Commentary covers all but Cicero. **Livy, Tacitus, Seneca and Ovid's
+  other works are not indexed** — they analyse fully but receive no citation and no notes.
 - Commentary for AP Caesar *BG* 4.24–36 covers 10 of 13 chapters; the other three have no
   Allen & Greenough note.
 - Metaphor, oxymoron, transferred epithet and true hendiadys are **deliberately not
