@@ -30,3 +30,6 @@ data/
 
 # macOS
 .DS_Store
+
+# Linguistic data: large, separately licensed, fetched at setup rather than vendored.
+data/
