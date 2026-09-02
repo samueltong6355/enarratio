@@ -20,8 +20,19 @@ click any token to get a complete account of it **in this specific context**:
 
 ## Status
 
-**Early construction.** The research phase is complete and documented in [`docs/`](docs/);
-implementation is in progress. See [CHANGELOG.md](CHANGELOG.md) for what has landed so far.
+**Working, partial.** The morphological, syntactic and lexical layers are built and tested;
+the metre, commentary, allusion and cultural-background layers are designed but not yet
+implemented. See [CHANGELOG.md](CHANGELOG.md) for exactly what has landed, and
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works and why.
+
+```bash
+./run.sh          # → http://localhost:5173
+```
+
+What works today: paste a passage, and every token can be clicked for its full parse,
+dictionary entry with principal parts, the syntactic construction it belongs to (with an
+Allen & Greenough citation and the evidence for the identification), the competing readings
+with their probabilities, and every form the word could possibly be.
 
 ## Design principles
 
@@ -51,11 +62,15 @@ docs/      Architecture, the research dossier, and per-domain research notes
 Requires `uv` and Node. Python is pinned to 3.12 (the NLP stack has no 3.14 wheels yet).
 
 ```bash
-uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python -r server/requirements.txt
+./run.sh
 ```
 
-Full data-acquisition instructions live in [`docs/RESEARCH-DOSSIER.md`](docs/RESEARCH-DOSSIER.md).
+That creates the virtualenv, installs both stacks and starts the API on :8000 and the
+interface on :5173. To run the tests:
+
+```bash
+PYTHONPATH=server .venv/bin/python -m pytest server/tests -q
+```
 
 ## Licensing
 

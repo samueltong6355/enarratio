@@ -219,6 +219,15 @@ class Tok:
     candidates: tuple[dict, ...] = ()
     #: Named-entity label from the parser ("LOC", "PERSON", "NORP", or "").
     ent: str = ""
+    #: Short dictionary gloss, used so explanations can name the English sense instead of
+    #: fabricating English inflections ("gero-ed" helps nobody).
+    gloss: str = ""
+
+    def sense(self) -> str:
+        """The first dictionary sense, for use inside a prose explanation."""
+        if not self.gloss:
+            return ""
+        return self.gloss.split(",")[0].split(";")[0].strip()
 
     def case(self) -> str | None:
         return self.morph.get("Case")
@@ -353,13 +362,14 @@ def _ablative_absolute(sent: Sentence) -> list[Construction]:
             is_part = t.morph.get("VerbForm") == "Part"
             noun = sent[subj.i].text if subj else "the implied subject"
             tense = t.morph.get("Tense")
+            named = f" (*{t.lemma}*, '{t.sense()}')" if t.sense() else f" (*{t.lemma}*)"
             if is_part and t.morph.get("Voice") == "Pass":
-                sense = (f"a perfect passive participle, so the action is completed before "
-                         f"the main verb: '{noun} having been {t.lemma}-ed'")
+                sense = (f"a perfect passive participle{named}, so the action it names is "
+                         f"already complete when the main verb happens")
                 hint = f"after {noun} had been …, / with {noun} …"
             elif is_part and tense == "Pres":
-                sense = (f"a present active participle, so the action is simultaneous with "
-                         f"the main verb")
+                sense = (f"a present active participle{named}, so its action is going on at "
+                         f"the same time as the main verb")
                 hint = f"while {noun} was …"
             else:
                 sense = "a predicate standing outside the syntax of the main clause"
@@ -548,11 +558,13 @@ def _passive_periphrastic(sent: Sentence) -> list[Construction]:
                       + (f" with the copula '{cop.text}'" if cop else ", copula elided")),
             explanation=(
                 f"The gerundive '{t.text}' with a form of *sum* expresses necessity or "
-                f"obligation, not simple passivity: 'must be {t.lemma}-ed', 'is to be "
-                f"{t.lemma}-ed'. This is the construction behind *Carthago delenda est*. "
-                f"The agent, if expressed, appears in the dative, not with *ab*."
+                f"obligation, not simple passivity: the action of *{t.lemma}*"
+                + (f" ('{t.sense()}')" if t.sense() else "")
+                + f" is something that *must* happen. This is the construction behind "
+                  f"*Carthago delenda est*, 'Carthage must be destroyed'. The agent, if "
+                  f"expressed, appears in the dative rather than with *ab*."
             ),
-            translation_hint=f"must be {t.lemma}-ed / ought to be {t.lemma}-ed",
+            translation_hint="must be … / ought to be …",
             grammar_ref="A&G 500", confidence=0.85,
         ))
     return out
@@ -1161,7 +1173,9 @@ def _gerund_gerundive(sent: Sentence) -> list[Construction]:
             evidence=f"'{t.text}' is a gerund ({t.case() or 'oblique'} case)"
                      + (f", governed by *{prep.text}*" if prep else ""),
             explanation=(
-                f"The gerund is a verbal noun -- '{t.lemma}-ing' -- and supplies the cases the "
+                f"The gerund is a verbal noun -- the '-ing' form of *{t.lemma}*"
+                + (f" ('{t.sense()}')" if t.sense() else "")
+                + f" -- and supplies the cases the "
                 f"infinitive lacks. It is active and neuter singular, and has no nominative "
                 f"(the infinitive serves there). "
                 + (f"With *{prep.text}* + accusative it commonly expresses purpose."
@@ -1173,7 +1187,7 @@ def _gerund_gerundive(sent: Sentence) -> list[Construction]:
                 + " If it had a direct object, Latin would usually prefer the gerundive "
                   "construction instead, making the object agree with the verbal adjective."
             ),
-            translation_hint=f"{t.lemma}-ing",
+            translation_hint="…-ing (verbal noun)",
             grammar_ref="A&G 502", confidence=0.8,
         ))
     return out
