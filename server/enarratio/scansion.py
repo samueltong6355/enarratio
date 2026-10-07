@@ -204,8 +204,9 @@ def _parse_accented(accented: str) -> dict[int, str]:
 
 @functools.lru_cache(maxsize=1)
 def quantity_db() -> QuantityDB:
+    from .storage import data_path
     env = os.environ.get("ENARRATIO_QUANTITY_DB")
-    path = Path(env) if env else Path(__file__).resolve().parents[2] / "data" / "morpheus-quantities.db"
+    path = Path(env).expanduser() if env else data_path("morpheus-quantities.db")
     return QuantityDB(path)
 
 
@@ -719,6 +720,9 @@ def scan_line(line: str, metre: str = "hexameter") -> Scansion:
             ),
         )
 
+    # Fifth-foot spondees are licensed but exceptional; prefer the normal dactyl
+    # when missing lexical quantities leave both possible. Keep alternatives.
+    solutions.sort(key=lambda solution: solution[4] != "dactyl")
     feet = _apply(solutions[0], sylls, live)
     pattern = " | ".join(
         "-uu" if f.kind == "dactyl" else "--" if f.kind == "spondee" else "-x" for f in feet
@@ -729,7 +733,7 @@ def scan_line(line: str, metre: str = "hexameter") -> Scansion:
         alternatives=len(solutions) - 1,
         note=(
             "" if len(solutions) == 1 else
-            f"{len(solutions)} scansions fit; the first is shown. Ambiguity usually means a "
+            f"{len(solutions)} scansions fit; a fifth-foot dactyl is preferred where possible. Ambiguity usually means a "
             f"vowel quantity is unrecorded, not that the line is genuinely ambiguous."
         ),
     )

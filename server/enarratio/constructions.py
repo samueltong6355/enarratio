@@ -22,6 +22,7 @@ arbitrator picking one silently.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import logging
 from typing import Callable, Iterable, Sequence
 
 __all__ = ["Construction", "detect_all", "DETECTORS", "CONSTRUCTION_INDEX"]
@@ -1309,6 +1310,9 @@ def detect_all(sent: Sentence) -> list[Construction]:
             found.extend(fn(sent))
         except Exception:
             # One broken rule must never take down the analysis of a whole passage.
+            logging.exception("Construction detector %s failed", _key)
             continue
+    specialized = {c.anchor for c in found if c.key in {"hindering_clause", "substantive_purpose", "substantive_result", "fear_clause"}}
+    found = [c for c in found if not (c.key in {"purpose_clause", "result_clause"} and c.anchor in specialized)]
     found.sort(key=lambda c: -c.confidence)
     return found

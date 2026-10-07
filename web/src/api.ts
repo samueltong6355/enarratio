@@ -117,18 +117,19 @@ export interface LiteraryDevice {
 
 export interface Passage {
   work: string; author: string; title: string; unit: string;
-  book: number; lineStart: number; lineEnd: number;
+  ref: string; refEnd: string; lineStart: number; lineEnd: number;
   confidence: number; matchedShingles: number; possibleShingles: number;
   citation: string;
 }
 
 export interface Note {
   author: string; source: string; language: string;
-  book: number; lineStart: number; lineEnd: number;
+  ref: string; grammar: string; lineStart: number; lineEnd: number;
   lemma: string; text: string; line: number;
 }
 
 export interface Analysis {
+  warnings?: string[];
   text: string;
   gate: Gate;
   tokens: Token[];
@@ -141,14 +142,38 @@ export interface Analysis {
   model: string;
 }
 
-const BASE = import.meta.env.VITE_API ?? "http://127.0.0.1:8000";
+const BASE = (import.meta.env.VITE_API ?? "").replace(/\/$/, "");
+
+export interface Health {
+  status: "warming" | "ready" | "error";
+  message: string;
+  resources: Record<string, { status: string }>;
+}
+
+export async function health(): Promise<Health> {
+  const res = await fetch(`${BASE}/api/health`, { signal: AbortSignal.timeout(5000), cache: "no-store" });
+  if (!res.ok) throw new Error("Local server is unavailable.");
+  return res.json();
+}
 
 export async function analyse(text: string): Promise<Analysis> {
-  const res = await fetch(`${BASE}/api/analyse`, {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/analyse`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
+    signal: AbortSignal.timeout(120000),
   });
-  if (!res.ok) throw new Error(`Analysis failed (${res.status})`);
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new Error("Analysis took too long. Try a shorter passage; the server may still be processing it.");
+    }
+    throw new Error("Cannot reach the local server. Start ./run.sh in the project folder and open the address it prints. Internet is not required after setup. Saved readings remain available below.");
+  }
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(typeof body?.detail === "string" ? body.detail : `Analysis failed (${res.status}). Check the local server's terminal for details.`);
+  }
   return res.json();
 }

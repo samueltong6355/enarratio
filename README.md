@@ -1,32 +1,35 @@
 # Enarratio
 
-A local-first Latin reading environment that explains everything.
+A local-first Latin reading companion with evidence-based, explicitly uncertain analysis.
 
 > *enarratio poetarum* — in Roman grammatical education, the detailed exposition of a text:
 > the grammarian's line-by-line unfolding of morphology, syntax, allusion and realia.
-> That is exactly what this program does.
+> This is the project's ambition, not a claim that every interpretive problem is solved.
 
-Paste a Latin excerpt. Enarratio first checks that it is well-formed Latin, then lets you
-click any token to get a complete account of it **in this specific context**:
+Paste a Latin excerpt. Enarratio checks whether it appears to be Latin, then lets you
+click any token for a contextual analysis. It cannot certify grammatical correctness;
+agreement warnings and parser confidence should be checked by the reader.
 
 - **Morphology** — lemma, part of speech, and full parse (case, number, gender, person, tense, voice, mood, degree), with every *competing* reading shown and the reason this one wins.
 - **Syntax** — the named construction the word participates in: ablative absolute, partitive genitive, dative with a special verb, accusative of respect (the "Greek accusative"), passive periphrastic with dative of agent, relative clause of characteristic, and so on — cross-referenced to Allen & Greenough.
-- **Paradigm** — the complete declension or conjugation table the form belongs to.
-- **Dictionary** — the full lexicon entry, not a gloss.
-- **Metre** — scansion of the line, with elision, hiatus, synizesis, caesura and correption marked.
-- **Commentary** — real editorial notes and footnotes when the passage is a known text.
-- **Allusion** — intertextual echoes of earlier authors.
-- **Background** — the cultural, historical, religious, legal and scientific context a Roman reader would have taken for granted.
+- **Dictionary** — local entries, principal parts and competing morphological readings; complete generated paradigm tables are not implemented.
+- **Metre** — hexameter candidates, elision and caesura; synizesis and non-hexameter metres remain unimplemented.
+- **Commentary** — imported editorial notes for recognized texts, when optional local databases are installed.
+- **Literary devices** — rule-based candidates with explanations and caveats, not proof of authorial intent.
+- **Offline study** — save up to 20 analyses in your browser, export JSON, or print. New analysis requires the local server, not the internet.
+- **Remaining research layers** — allusion search and comprehensive cultural background are not yet implemented.
 
 ## Status
 
-**Working, partial.** The morphological, syntactic and lexical layers are built and tested;
-the metre, commentary, allusion and cultural-background layers are designed but not yet
-implemented. See [CHANGELOG.md](CHANGELOG.md) for exactly what has landed, and
+**Working, partial.** Morphology, syntax, lexical lookup, hexameter, literary devices and
+optional imported commentary are implemented. Eleven additional clause families and a
+tentative directional dative are included. See [CHANGELOG.md](CHANGELOG.md) and
+[docs/STATE.md](docs/STATE.md) for verification and remaining work, and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works and why.
 
 ```bash
-./run.sh          # → http://localhost:5173
+./run.sh --setup  # once, online: install/repair dependencies and build the reader
+./run.sh          # everyday use, offline: http://127.0.0.1:8000
 ```
 
 What works today: paste a passage, and every token can be clicked for its full parse,
@@ -36,12 +39,10 @@ with their probabilities, and every form the word could possibly be.
 
 ## Design principles
 
-1. **Local-first.** Lexica, corpora, commentaries and models live on disk. The app works
-   offline. Network calls are an enrichment layer whose results are cached permanently.
-2. **Deterministic core, generative shell.** Morphology, syntax and scansion come from real
-   parsers and real lexica — never from a language model's memory. A model may only put the
-   deterministic analysis into prose, and every grammatical claim it makes is validated
-   against the parser's output before it reaches the screen.
+1. **Local-first.** Lexica and models live on disk. Analysis makes no external requests.
+   Optional corpora and commentaries are separately installed, not shipped in Git.
+2. **Evidence-based core.** A statistical parser, local lexica and explicit rules supply
+   the analysis. There is no generative-model explanation layer in the current app.
 3. **Show the ambiguity.** Latin forms are systematically ambiguous. A tool that hides this
    teaches students to trust it instead of to read. Enarratio shows the competing analyses
    and argues for the winner.
@@ -62,15 +63,27 @@ docs/      Architecture, the research dossier, and per-domain research notes
 Requires `uv` and Node. Python is pinned to 3.12 (the NLP stack has no 3.14 wheels yet).
 
 ```bash
+./run.sh --setup
 ./run.sh
 ```
 
-That creates the virtualenv, installs both stacks and starts the API on :8000 and the
-interface on :5173. To run the tests:
+Setup creates or repairs the environment. Normal startup serves both API and reader on
+port 8000 and never installs packages. See [the startup and troubleshooting guide](docs/STARTUP.md)
+for missing dependencies, occupied ports, optional data, and saved-reading limitations.
+To run the tests:
 
 ```bash
 PYTHONPATH=server .venv/bin/python -m pytest server/tests -q
 ```
+
+## AP Latin benchmark
+
+This is **not yet a complete AP course replacement**. The previous 897/897-unit report was
+a legacy Caesar/Vergil corpus-presence check from a different data installation, not a
+learning-quality assessment. The [current College Board course](https://apcentral.collegeboard.org/courses/ap-latin)
+uses Pliny's *Letters* and revised *Aeneid* selections, plus teacher-selected texts.
+`scripts/ap_coverage.py` is explicitly labeled as the legacy benchmark; current coverage
+still needs a new manifest and verified commentary.
 
 ## Licensing
 

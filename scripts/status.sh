@@ -13,7 +13,7 @@ bold "-- tests"
 if [ -x .venv/bin/python ]; then
   PYTHONPATH=server .venv/bin/python -m pytest server/tests -q 2>&1 | tail -3
 else
-  echo "  no .venv — run ./run.sh to create it"
+  echo "  no .venv — run ./run.sh --setup while online"
 fi
 echo
 bold "-- data files (gitignored, fetched at setup)"
@@ -24,9 +24,9 @@ done
 echo
 bold "-- servers"
 curl -s -o /dev/null -w "  api  :8000  %{http_code}\n" --max-time 1 http://127.0.0.1:8000/api/health 2>/dev/null || echo "  api  :8000  down"
-curl -s -o /dev/null -w "  web  :5173  %{http_code}\n" --max-time 1 http://localhost:5173/ 2>/dev/null || echo "  web  :5173  down"
+curl -s -o /dev/null -w "  reader :8000  %{http_code}\n" --max-time 1 http://127.0.0.1:8000/ 2>/dev/null || echo "  reader :8000 down"
 echo
-bold "-- AP Latin syllabus coverage"
+bold "-- legacy Caesar/Vergil corpus presence (not current AP coverage)"
 if [ -f data/passages.db ]; then
   PYTHONPATH=server .venv/bin/python scripts/ap_coverage.py 2>/dev/null | tail -4 | sed 's/^/  /'
 else

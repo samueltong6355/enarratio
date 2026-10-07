@@ -20,11 +20,14 @@ is what makes interactive clicking feel instant.
 from __future__ import annotations
 
 import functools
+import logging
+import sqlite3
 import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
 from . import cases as _cases  # noqa: F401  -- importing registers the case detectors
+from . import clauses as _clauses  # noqa: F401
 from . import constructions as cx
 from .gate import GateResult, assess
 from .commentary import notes_for
@@ -333,7 +336,17 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
 
     # Identify the passage before anything else needs it: the citation is the key that
     # unlocks commentary, and it costs a few milliseconds against the shingle index.
-    passage = identify(text)
+    warnings: list[str] = []
+
+    def optional(label, fn, fallback):
+        try:
+            return fn()
+        except (sqlite3.Error, OSError):
+            logging.exception("Optional %s database could not be read", label)
+            warnings.append(f"{label} is unavailable: its local database could not be read. Core word analysis is still available.")
+            return fallback
+
+    passage = optional("Passage identification", lambda: identify(text), None)
 
     candidates = _candidate_readings(nlp, doc)
 
@@ -437,8 +450,9 @@ def analyse(text: str, model: str = MODEL_NAME) -> dict[str, Any]:
             {"i": i, "start": s.start, "end": s.end, "text": s.text}
             for i, s in enumerate(doc.sents)
         ],
-        "scansion": _maybe_scan(text),
+        "scansion": optional("Scansion", lambda: _maybe_scan(text), None),
         "passage": passage,
-        "commentary": _commentary_for(passage),
+        "commentary": optional("Commentary", lambda: _commentary_for(passage), []),
+        "warnings": warnings,
         "model": model,
     }

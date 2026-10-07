@@ -281,7 +281,8 @@ def _notes(src: Source, path: Path) -> Iterator[tuple]:
 
 
 def commentary_db(path: Path | None = None) -> Path:
-    return path or Path(__file__).resolve().parents[2] / "data" / "commentary.db"
+    from .storage import data_path
+    return path or data_path("commentary.db")
 
 
 def ingest(hopper_dir: Path, db_path: Path | None = None) -> dict[str, int]:

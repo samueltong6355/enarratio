@@ -96,7 +96,8 @@ def _hash(words: Iterable[str]) -> int:
 
 
 def index_db(path: Path | None = None) -> Path:
-    return path or Path(__file__).resolve().parents[2] / "data" / "passages.db"
+    from .storage import data_path
+    return path or data_path("passages.db")
 
 
 def build_index(source_dir: Path, db_path: Path | None = None) -> dict[str, int]:

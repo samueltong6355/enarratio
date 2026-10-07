@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { analyse, type Analysis, type Construction, type LiteraryDevice, type Note, type Passage, type ScanLine, type Token } from "./api";
+import { useEffect, useMemo, useState } from "react";
+import { analyse, health, type Health, type Analysis, type Construction, type LiteraryDevice, type Note, type Passage, type ScanLine, type Token } from "./api";
+import { readSaved, writeSaved, exportReading, type SavedReading } from "./readings";
 import "./App.css";
 
 const SAMPLES: { label: string; text: string }[] = [
@@ -9,7 +10,7 @@ const SAMPLES: { label: string; text: string }[] = [
   },
   {
     label: "Vergil, Aeneid 1.1",
-    text: "Arma virumque cano, Troiae qui primus ab oris Italiam fato profugus Laviniaque venit litora.",
+    text: "Arma virumque cano, Troiae qui primus ab oris\nItaliam, fato profugus, Laviniaque venit\nlitora, multum ille et terris iactatus et alto",
   },
   {
     label: "Caesar, ablative absolute",
@@ -34,6 +35,32 @@ export default function App() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [server, setServer] = useState<Health | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [saved, setSaved] = useState(readSaved);
+  const [storageMessage, setStorageMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const status = await health();
+        if (active) { setServer(status); setConnected(true); }
+      } catch { if (active) setConnected(false); }
+      if (active) timer = setTimeout(poll, 3000);
+    }
+    void poll();
+    return () => { active = false; clearTimeout(timer); };
+  }, []);
+
+  function updateSaved(next: SavedReading[]) {
+    try {
+      writeSaved(next);
+      setSaved(next);
+      setStorageMessage("Saved on this browser only. Export a copy for a durable backup.");
+    } catch { setStorageMessage("Browser storage is unavailable or full. Export this reading instead."); }
+  }
 
   async function run() {
     setBusy(true);
@@ -44,7 +71,7 @@ export default function App() {
     } catch (e) {
       setError(
         e instanceof Error
-          ? `${e.message}. Is the server running? \`uvicorn enarratio.app:app\``
+          ? e.message
           : String(e),
       );
     } finally {
@@ -65,12 +92,22 @@ export default function App() {
     <div className="app">
       <header>
         <h1>
-          Enarratio<span className="sub">Latin, fully explained</span>
+          Enarratio<span className="sub">Your local Latin reading companion</span>
         </h1>
       </header>
+      <section className="notice" aria-live="polite">
+        <p>{connected ? server?.message : "Connecting to your local server. If it is stopped, run ./run.sh and open the address it prints. Saved readings below still work in this open page."}</p>
+        {connected && server && Object.entries(server.resources).some(([, r]) => r.status !== "available") &&
+          <details><summary>Optional research data is incomplete</summary>
+            <ul>{Object.entries(server.resources).map(([name, r]) => <li key={name}>{name}: {r.status}</li>)}</ul>
+            <p>Word analysis does not require these databases. Commentary and passage recognition need separately installed data; without vowel quantities, scansion is less certain. See the README for offline data setup.</p>
+          </details>}
+      </section>
 
       <section className="input">
         <textarea
+          aria-label="Latin passage"
+          maxLength={20000}
           value={text}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
@@ -78,7 +115,7 @@ export default function App() {
           rows={4}
         />
         <div className="controls">
-          <button onClick={run} disabled={busy || !text.trim()}>
+          <button onClick={run} disabled={busy || !text.trim() || (connected && server?.status !== "ready")}>
             {busy ? "Analysing…" : "Analyse"}
           </button>
           <div className="samples">
@@ -97,6 +134,27 @@ export default function App() {
           </div>
         </div>
         {error && <p className="error">{error}</p>}
+        {data?.warnings?.map(w => <p className="notice" key={w}>{w}</p>)}
+      </section>
+
+      <section className="input">
+        <div className="controls">
+          <button disabled={!data || busy} onClick={() => data && updateSaved([
+            { id: crypto.randomUUID(), savedAt: new Date().toISOString(), analysis: data },
+            ...saved.filter(r => r.analysis.text !== data.text),
+          ].slice(0, 20))}>Save reading</button>
+          <button disabled={!data} onClick={() => data && exportReading(data)}>Export analysis</button>
+          <button disabled={!data} onClick={() => window.print()}>Print / PDF</button>
+        </div>
+        <p className="muted" aria-live="polite">{storageMessage || "Up to 20 readings can be kept in this browser; nothing is uploaded."}</p>
+        {saved.length > 0 && <details><summary>Saved readings ({saved.length})</summary>
+          <ul>{saved.map(r => <li key={r.id}>
+            <button className="link" disabled={busy} onClick={() => { setData(r.analysis); setText(r.analysis.text); setSelected(null); setError(null); }}>
+              {r.analysis.text.slice(0, 90)} — {new Date(r.savedAt).toLocaleDateString()}
+            </button>{" "}
+            <button className="link" aria-label={`Remove saved reading: ${r.analysis.text.slice(0, 30)}`} onClick={() => updateSaved(saved.filter(x => x.id !== r.id))}>Remove</button>
+          </li>)}</ul>
+        </details>}
       </section>
 
       {data && !data.gate.isLatin && (
@@ -533,6 +591,7 @@ function CommentaryPanel({ notes }: { notes: Note[] }) {
                 <span className="lang">{n.language === "la" ? "Latin" : "English"}</span>
               </summary>
               <p>{n.text}</p>
+              <p className="muted">Source: {n.source} · reference {n.ref}{n.grammar ? ` · ${n.grammar}` : ""}</p>
             </details>
           ))}
         </div>

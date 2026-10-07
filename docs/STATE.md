@@ -1,7 +1,56 @@
 # State of play
 
-**Updated:** 2026-09-02, after the full case-usage inventory and The Latin Library index.
+**Updated:** 2026-10-07, offline startup and lightweight feature revision.
 **Read this first; update it before you stop.** `./scripts/status.sh` prints a live readout.
+
+## Current checkpoint — supersedes historical claims below
+
+- Working checkout: `/Users/samueltong/enarratio`, linked to `samueltong6355/enarratio`.
+  The downloaded Documents copy was identical on arrival and has not been modified.
+- Start with `./run.sh`; use `--setup` only for online dependency repair/installation.
+  The built reader and API share port 8000. Use `--port` if an old server occupies it.
+  See [STARTUP.md](STARTUP.md). New analyses need a running local server.
+- Added model warm-up/error reporting, optional-data diagnostics, corrupt-enrichment
+  isolation, configurable data directory, browser-saved readings, JSON export and print.
+- Added eleven clause families and tentative directional dative. The construction API
+  now includes the case and clause catalogues. Source notes and limits:
+  [research/lightweight-clauses.md](research/lightweight-clauses.md).
+- Fixed offline hexameter preference when absent quantities leave multiple fits. All
+  alternatives remain counted; fifth-foot dactyl preference is disclosed.
+- This fresh checkout has **no optional research databases**. Historical corpus counts
+  below describe a former installation, not assets shipped with the repository.
+- The historical AP benchmark is NOT current coverage. Current AP uses Pliny and revised
+  Vergil selections; README and benchmark now state this explicitly.
+- Git history backup before removing Claude co-author trailers:
+  `/Users/samueltong/enarratio-before-credit-cleanup-20261007.bundle` (verified).
+  Samuel Tong remains the author and committer of historical commits. The history rewrite
+  changes commit IDs; other clones must reconcile with the rewritten main before pushing.
+
+### Resume here
+
+1. Read this checkpoint; run `git status`, `./run.sh --check`, and the tests before edits.
+2. Optional corpus-dependent tests skip on this checkout. Restore/import independently
+   licensed data before claiming passage/commentary coverage; do not invent notes.
+3. Resolve Cicero Select Orations heading-to-work mapping against real source XML.
+4. Build a current Pliny/Vergil AP manifest and verify commentary and teaching coverage.
+5. Remaining substantial work: allusion index, cultural database, full paradigms,
+   additional metres and synizesis. Current rules remain partial, not all Latin syntax.
+
+### Verification for this checkpoint
+
+- `PYTHONPATH=server .venv/bin/python -m pytest server/tests -q`: **133 passed,
+  28 skipped** (optional corpus databases absent). One upstream Starlette/httpx
+  deprecation warning; no test failures.
+- `npm --prefix web run build` and `npm --prefix web run lint`: passed.
+- `node web/scripts/smoke.mjs http://127.0.0.1:8001`: passed with external requests
+  blocked; checked live analysis, new clause display, browser save/reload, JSON download,
+  disconnected API error, preserved saved analysis, and zero browser page errors.
+- `./run.sh --check`: passed. Occupied-port startup returns an actionable error without
+  killing another server. `git diff --check`: passed.
+- Test server was started on port 8001 because port 8000 was occupied by a pre-existing
+  process; that existing process was left untouched.
+
+## Historical record (September installation)
 
 ---
 
@@ -33,7 +82,7 @@ to be sitting on local disk already keyed by `(book, line)`.
 | **Commentary** | done, wired in | 28,747 notes from 5 commentators; Allen & Greenough's Caesar notes are word-level |
 | **Literary figures** | done, wired in | 17 figures, each explaining its *effect* |
 | **Case usage** | **done, wired in** | 42 uses of gen./dat./acc./abl./gerund; 70 constructions in all; 128 tests |
-| **AP Latin syllabus** | **100% covered** | `scripts/ap_coverage.py`: 897/897 units, 18/18 passages identified, 18/18 with commentary |
+| Legacy Caesar/Vergil corpus | historical presence check only | 897/897 units in the former installation; not current AP or comprehensive teaching coverage |
 
 Everything above is reachable from the interface. Verse is detected rather than declared:
 each line is offered to the hexameter fitter and the passage counts as verse if a majority
@@ -50,7 +99,8 @@ fit, which prose never does.
    `2` three times), so there is no unambiguous mapping to a work. Resolving it means
    reading each speech's `<head>` and matching by title. Until then a wrong mapping would
    file a *Pro Milone* note under *In Catilinam*, which is worse than no note at all.
-2. **The eleven missing clause detectors.** We cover ~12% of A&G's ~230 named constructions,
+2. **Eleven clause families now implemented (October revision).** The original backlog was:
+   We cover ~12% of A&G's ~230 named constructions,
    and the gap is almost entirely the subordinate-clause and mood system — where students
    actually get stuck. All eleven are closed-conjunction-list + mood rules, the same shape as
    the detectors that already work: `quin`/`quominus` (558–9), substantive purpose after

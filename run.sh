@@ -1,25 +1,18 @@
 #!/usr/bin/env bash
-# Start Enarratio: analysis API on :8000, reading interface on :5173.
-# Everything runs locally; nothing about a pasted passage leaves this machine.
+# One local server; ordinary startup never downloads dependencies or data.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-if [ ! -d .venv ]; then
-  echo "No .venv found. Creating one (Python 3.12 -- the NLP stack has no 3.14 wheels)…"
-  uv venv --python 3.12 .venv
+if [[ "${1:-}" == "--setup" ]]; then
+  command -v uv >/dev/null || { echo "Install uv first: https://docs.astral.sh/uv/"; exit 1; }
+  command -v npm >/dev/null || { echo "Install Node.js (including npm) first."; exit 1; }
+  [[ -x .venv/bin/python ]] || uv venv --python 3.12 .venv
   uv pip install --python .venv/bin/python -r server/requirements.txt
+  npm --prefix web ci
+  npm --prefix web run build
+  echo "Setup complete. Start with ./run.sh (works without internet)."
+  exit 0
 fi
-[ -d web/node_modules ] || npm --prefix web install
-
-cleanup() { kill 0 2>/dev/null || true; }
-trap cleanup EXIT INT TERM
-
-PYTHONPATH=server .venv/bin/python -m uvicorn enarratio.app:app \
-  --host 127.0.0.1 --port 8000 &
-npm --prefix web run dev &
-
-echo
-echo "  Enarratio → http://localhost:5173"
-echo "  API       → http://127.0.0.1:8000/api/health"
-echo "  Ctrl-C to stop both."
-wait
+[[ -x .venv/bin/python ]] || { echo "Missing Python environment. While online, run ./run.sh --setup once."; exit 1; }
+export PYTHONPATH="$PWD/server${PYTHONPATH:+:$PYTHONPATH}"
+exec .venv/bin/python scripts/launch.py "$@"

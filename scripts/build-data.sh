@@ -6,23 +6,15 @@
 # and Vergil are public domain). data/ is gitignored, so this script is how a fresh clone
 # acquires them.
 #
-#   scripts/build-data.sh [path-to-perseus-opensource-dir]
+#   scripts/build-data.sh /path/to/hopper/Classics [/path/to/lat_text_latin_library]
 #
 # The Perseus "hopper" open-source dump is at
 #   https://github.com/PerseusDL/hopper  (or the GreekRoman tarball from Perseus downloads)
 # and the directory wanted is  Classics/  (the whole tree, not one author).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-mkdir -p data
 
 SRC="${1:-}"
-if [ -z "$SRC" ]; then
-  for guess in \
-      "$HOME/hopper/Classics" \
-      "/private/tmp/claude-501/-Users-samueltong"/*/*/scratchpad/hopper/Classics; do
-    [ -d "$guess" ] && SRC="$guess" && break
-  done
-fi
 if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
   echo "Perseus source directory not found."
   echo "Pass it explicitly:  scripts/build-data.sh /path/to/hopper/Classics"
@@ -40,12 +32,8 @@ PYTHONPATH=server .venv/bin/python -m enarratio.identify build "$SRC"
 
 echo
 echo "== The Latin Library (optional: breadth, no commentary) =="
-LL=""
-for guess in "$HOME/lat_text_latin_library" \
-    "/private/tmp/claude-501/-Users-samueltong"/*/*/scratchpad/lat_text_latin_library; do
-  [ -d "$guess" ] && LL="$guess" && break
-done
-if [ -n "$LL" ]; then
+LL="${2:-}"
+if [ -n "$LL" ] && [ -d "$LL" ]; then
   PYTHONPATH=server .venv/bin/python -m enarratio.latinlibrary build "$LL" | tail -3
 else
   echo "  not found. Clone https://github.com/cltk/lat_text_latin_library for wider"
@@ -54,7 +42,8 @@ else
 fi
 
 echo
-if [ ! -f data/morpheus-quantities.db ]; then
+QUANTITY_DB="${ENARRATIO_QUANTITY_DB:-${ENARRATIO_DATA_DIR:-data}/morpheus-quantities.db}"
+if [ ! -f "$QUANTITY_DB" ]; then
   cat <<'MSG'
 == vowel quantities: MISSING ==
   Scansion needs data/morpheus-quantities.db (Morpheus forms with marked quantities).
@@ -64,5 +53,5 @@ if [ ! -f data/morpheus-quantities.db ]; then
   Without it, scansion still works but relies on position and diphthongs alone.
 MSG
 else
-  echo "== vowel quantities: present ($(du -h data/morpheus-quantities.db | cut -f1)) =="
+  echo "== vowel quantities: present ($(du -h "$QUANTITY_DB" | cut -f1)) =="
 fi

@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-10-07 — Offline startup, study tools, clause analysis
+
+- Replaced the fragile two-server launcher with one localhost origin. Explicit online
+  setup repairs partial environments; everyday launch/check never downloads anything.
+- Added build freshness and port checks; removed process-group-wide cleanup. The API
+  remains reachable during model warm-up and model-load failure, with actionable status.
+- Replaced hardcoded API URLs with same-origin requests and a strict development proxy;
+  added request timeout and useful server/network error messages.
+- Added optional-data status, configurable data directory, and isolation of corrupt
+  enrichment databases from core analysis. Removed obsolete scratch-directory discovery.
+- Added browser-local saved readings (20), JSON export, print controls, optional-data
+  notices, input limit/label, commentary source/reference display, and verse sample lines.
+- Implemented eleven priority clause families and tentative directional dative with
+  source references and ambiguity caveats. Exposed all case/clause catalogue entries.
+- Prefer ordinary fifth-foot dactyls when multiple hexameters fit absent quantities;
+  preserve alternative count and explain the preference.
+- Corrected stale claims about complete grammar/AP coverage and shipped data. Preserved
+  legacy Caesar/Vergil benchmark as explicitly historical. Added startup/resumption docs.
+- Added clause, model readiness/failure, request validation, configured storage,
+  corrupt database and no-data recovery tests. See the checkpoint for final verification.
+- User-requested Git attribution cleanup: backed up original history, remove Claude
+  co-author trailers while retaining Samuel Tong's historical author/committer identities.
+
 All notable changes to Enarratio are documented here. Each entry records what changed and
 *why*, so the reasoning behind the build is recoverable later.
 

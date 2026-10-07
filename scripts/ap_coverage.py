@@ -1,7 +1,8 @@
-"""Does Enarratio cover the AP Latin syllabus without sending the reader elsewhere?
+"""Legacy Caesar/Vergil corpus-presence benchmark, NOT current AP syllabus coverage.
 
-The College Board prescribes a fixed body of Latin: selections from Caesar's *Gallic War*
-and Vergil's *Aeneid*. That makes a checkable benchmark rather than a vague aspiration.
+This uses the pre-2025 Caesar/Vergil selections. The current syllabus instead includes
+Pliny and revised Vergil selections; see https://apcentral.collegeboard.org/courses/ap-latin.
+Having text and a note is not a measure of complete pedagogical coverage.
 For every required passage this script asks four questions:
 
 1. **Text** -- is the Latin itself in the local corpus?
@@ -103,7 +104,10 @@ def check_caesar() -> list[dict]:
 
 
 def main() -> int:
-    print("AP LATIN SYLLABUS COVERAGE")
+    print("LEGACY CAESAR/VERGIL CORPUS BENCHMARK (not current AP coverage)")
+    if not index_db().is_file():
+        print("Passage database missing. Import local data with scripts/build-data.sh first.")
+        return 1
     print("=" * 78)
     print(f"{'passage':<22}{'text':>12}{'identified':>12}{'commentary':>14}")
     print("-" * 78)

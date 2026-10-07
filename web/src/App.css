@@ -294,3 +294,11 @@ details p { font-size: 13px; }
   background: var(--accent-soft); padding: 8px 11px; border-radius: var(--radius);
 }
 .device .dev-evidence { font-size: 12px; color: var(--muted); font-style: italic; }
+
+@media print {
+  .input, header, .app > .notice { display: none; }
+  .workspace { display: block; }
+  .app { max-width: none; padding: 0; }
+  .passage, .device, .construction, .note { break-inside: avoid; }
+  body { background: white; color: black; }
+}
